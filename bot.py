@@ -95,6 +95,33 @@ async def on_raw_reaction_add(payload):
         print(payload.user_id)
 
 
+@client.event
+async def on_raw_reaction_remove(payload):
+    if payload.user_id != client.user.id:  # checks if reaction is from bot
+        print("Add role initiated")
+        guild_id = payload.guild_id
+        guild = discord.utils.find(lambda g: g.id == guild_id, client.guilds)
+        value = payload.emoji.name
+        if all_roles_dict[value] is not None:
+            role = discord.utils.get(guild.roles, name=all_roles_dict[value])
+            while role is None:
+                await guild.create_role(name=all_roles_dict[value], mentionable=True)
+                role = discord.utils.get(guild.roles, name=all_roles_dict[value])
+                await role.edit(mentionable=True)
+                print(role)
+            member = get(guild.members, id=payload.user_id)
+            if member:
+                await member.remove_roles(role)
+                print("success")
+            else:
+                print("Member not found")
+        else:
+            print("Role not found")
+    else:
+        print("The bot reacted")
+        print(payload.user_id)
+
+
 @client.command()
 async def setroles(ctx):
     channel = ctx.message.channel
