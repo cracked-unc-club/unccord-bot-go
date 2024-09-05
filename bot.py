@@ -1,5 +1,5 @@
 # invite link:
-# https://discord.com/api/oauth2/authorize?client_id=744024313476415540&permissions=8&scope=bot
+# https://discord.com/api/oauth2/authorize?client_id={client_id}&permissions=8&scope=bot
 # run on Heroku server and locally
 
 from email import message
@@ -9,13 +9,8 @@ from discord.ext import commands
 from discord.utils import get
 
 import os
-import psutil
-import json
-import pytz
 
-from email import message
 from dotenv import load_dotenv
-from datetime import datetime
 from constants import all_roles_dict, all_roles_list, special_roles
 
 load_dotenv()
@@ -52,18 +47,10 @@ async def on_message(message):
         print(message.embeds)
         for embed in message.embeds:
             for field in embed.fields:
-                # print(field.name)
-                print(field.value)
                 value = field.value
                 for i in range(len(all_roles_list)):
                     if all_roles_list[i] in value:
                         await message.add_reaction(all_roles_list[i])
-    elif message.channel.id == 957465271830970389:
-        general = message.guild.get_channel(957465202767564883)
-        rules = message.guild.get_channel(957466979936129044)
-        roles = message.guild.get_channel(957874874037202944)
-        message = f"Welcome {message.author.mention}! Make sure to check {rules.mention} for server rules and {roles.mention} for roles."
-        await general.send(message)
     else:
         print(message.author.name)
 
