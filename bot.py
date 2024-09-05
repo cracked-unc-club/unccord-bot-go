@@ -49,7 +49,6 @@ async def on_message(message):
     if (message.author.bot) and (
         message.author.id == client.user.id
     ):  # checks if message is from bot
-        global all_roles_list
         print(message.embeds)
         for embed in message.embeds:
             for field in embed.fields:
@@ -76,13 +75,15 @@ async def on_raw_reaction_add(payload):
         guild_id = payload.guild_id
         guild = discord.utils.find(lambda g: g.id == guild_id, client.guilds)
         value = payload.emoji.name
-        if value in all_roles_list:
-            role = None
+        if all_roles_dict[value] is not None:
+            role = discord.utils.get(guild.roles, name=all_roles_dict[value])
             while role is None:
+                await guild.create_role(name=all_roles_dict[value], mentionable=True)
                 role = discord.utils.get(guild.roles, name=all_roles_dict[value])
+                await role.edit(mentionable=True)
+                print(role)
             member = payload.member
             if member:
-                await role.edit(mentionable=True)
                 await member.add_roles(role)
                 print("success")
             else:
