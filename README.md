@@ -1,13 +1,14 @@
-# UNCCORD BOT GO
+# UNCCORD BOT
 [Join Cracked Unc Club](https://discord.gg/3jfKWTwbeM)
 
-## Library
+## Usage
 
-[![image](https://github.com/user-attachments/assets/b382c075-b992-401b-8565-d46224345b44)](https://github.com/disgoorg/disgo)
-
-I trust him
-
-
+```sh
+python3 -m venv venv && source ./venv/bin/activate
+pip install poetry
+poetry install
+python3 ./bot.py
+```
 
 ## Roadmap:
 
