@@ -13,8 +13,7 @@ I trust him.
 ## Roadmap
 
 ### Planned Features for Version 0.1:
-- [ ] Be able to replace the Color-Chan and Unpaid Intern (Carlbot) bots utilizing native discord features. (Anything related to role assignment currently in [#react-roles](https://discord.com/channels/1276883668559724544/1277649676698386585)).
-- [ ] Build Voice-Master Functionality
+- [ ] Build Voice-Master Functionality.
 - [ ] Basic Discord message handling using 'disgo'.
 - [ ] CI Pipeline setup using GitHub Actions for build and test.
 - [ ] CD Pipeline setup (Where are we hosting? What tool are we going to use?).
