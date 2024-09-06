@@ -12,15 +12,19 @@ I trust him.
 
 ## Roadmap
 
-### To feature version 0.1:
--[ ] Be able to replace the Color-Chan and Unpaid Intern (Carlbot) bots. (Anything related to role assignment currently in [#react-roles](https://discord.com/channels/1276883668559724544/1277649676698386585)).
--[ ] Basic Discord message handlling using 'disgo'.
--[ ] CI Pipeline setup using GitHub Actions for build and test
--[ ] Full unit testing suite for basic features
--[ ] Develop a modular progress structure for easy scalabilty
+### Planned Features for Version 0.1:
+- [ ] Be able to replace the Color-Chan and Unpaid Intern (Carlbot) bots. (Anything related to role assignment currently in [#react-roles](https://discord.com/channels/1276883668559724544/1277649676698386585)).
+- [ ] Basic Discord message handling using 'disgo'.
+- [ ] CI Pipeline setup using GitHub Actions for build and test.
+- [ ] CD Pipeline setup (Where are we hosting? What tool are we going to use?).
+- [ ] Full unit testing suite for basic features. 
+- [ ] Develop a modular progress structure for easy scalability.
 
 ### To version 1.0:
 Replace all third-party bots.
+llm integration?
+Twitter integration?
+Automatic cracked unc event organization in your local metropolitian area? 
 
 
 ### Features
