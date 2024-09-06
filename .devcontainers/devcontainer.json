@@ -1,0 +1,9 @@
+{
+    "name": "Go DevContainer",
+    "image": "mcr.microsoft.com/devcontainers/go:1.20",
+    "settings": {},
+    "extensions": [
+      "golang.Go"
+    ],
+    "postCreateCommand": "go mod tidy"
+  }
