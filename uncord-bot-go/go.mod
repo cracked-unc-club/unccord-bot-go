@@ -5,6 +5,7 @@ go 1.23.1
 require github.com/disgoorg/disgo v0.18.11
 
 require (
+	github.com/disgoorg/disgolink/v3 v3.0.2 // indirect
 	github.com/disgoorg/json v1.2.0 // indirect
 	github.com/disgoorg/snowflake/v2 v2.0.3 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
