@@ -100,20 +100,26 @@ func (h *Handler) play(guildID, commandChannelID, voiceChannelID snowflake.ID, u
 
 	// Send appropriate message based on queue position
 	queuePosition := len(queue.Tracks) - 1
-	var content string
+	var embed *discord.EmbedBuilder
 	if queuePosition == 0 {
-		content = fmt.Sprintf("Now playing: %s by %s", addedTrack.Info.Title, addedTrack.Info.Author)
+		embed = discord.NewEmbedBuilder().
+			SetTitle("Now Playing").
+			SetDescription(fmt.Sprintf("**%s**\nby %s", addedTrack.Info.Title, addedTrack.Info.Author)).
+			SetColor(ColorSuccess).
+			SetThumbnail(*addedTrack.Info.ArtworkURL)
 	} else {
-		content = fmt.Sprintf("Added to queue: %s by %s (%d %s in front)",
-			addedTrack.Info.Title,
-			addedTrack.Info.Author,
-			queuePosition,
-			pluralize("song", queuePosition))
+		embed = discord.NewEmbedBuilder().
+			SetTitle("Added to Queue").
+			SetDescription(fmt.Sprintf("**%s**\nby %s\n\nPosition in queue: %d",
+				addedTrack.Info.Title,
+				addedTrack.Info.Author,
+				queuePosition+1)).
+			SetColor(ColorInfo).
+			SetThumbnail(*addedTrack.Info.ArtworkURL)
 	}
 
 	_, err = h.Client.Rest().CreateMessage(commandChannelID, discord.NewMessageCreateBuilder().
-		SetContent(content).
-		SetEphemeral(true).
+		SetEmbeds(embed.Build()).
 		Build())
 	if err != nil {
 		slog.Error("Failed to send queue message", slog.Any("err", err))
@@ -162,6 +168,7 @@ func (h *Handler) createControlPanel(channelID, guildID snowflake.ID) {
 		SetEmbeds(discord.NewEmbedBuilder().
 			SetTitle(currentTrack.Info.Title).
 			SetDescription(currentTrack.Info.Author).
+			SetColor(ColorInfo).
 			SetImage(*currentTrack.Info.ArtworkURL).
 			Build(),
 		).
@@ -258,55 +265,67 @@ func (h *Handler) playNextTrack(guildID snowflake.ID) {
 }
 
 func (h *Handler) handleSkipButton(event *events.ComponentInteractionCreate) {
-	message, err := h.skipTracks(*event.GuildID(), 1)
+	embed, err := h.skipTracks(*event.GuildID(), 1)
 	if err != nil {
 		event.CreateMessage(discord.NewMessageCreateBuilder().
-			SetContent(fmt.Sprintf("Error: %s", err)).
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetDescription(fmt.Sprintf("Error: %s", err)).
+				SetColor(ColorError).
+				Build()).
 			SetEphemeral(true).
 			Build())
 		return
 	}
 
 	event.CreateMessage(discord.NewMessageCreateBuilder().
-		SetContent(message).
-		SetEphemeral(true).
+		SetEmbeds(embed.Build()).
 		Build())
 }
 
-func (h *Handler) skipTracks(guildID snowflake.ID, amount int) (string, error) {
+func (h *Handler) skipTracks(guildID snowflake.ID, amount int) (*discord.EmbedBuilder, error) {
 	player := h.Lavalink.ExistingPlayer(guildID)
 	queue := h.Queues.Get(guildID)
 	if player == nil {
-		return "", fmt.Errorf("no player found")
+		return nil, fmt.Errorf("no player found")
 	}
 
 	if len(queue.Tracks) == 0 {
 		// If queue is empty, stop the current track
 		if err := player.Update(context.TODO(), lavalink.WithNullTrack()); err != nil {
-			return "", fmt.Errorf("error while stopping track: %w", err)
+			return nil, fmt.Errorf("error while stopping track: %w", err)
 		}
-		return "No more tracks in the queue. Stopped playing.", nil
+		return discord.NewEmbedBuilder().
+			SetDescription("No more tracks in the queue. Stopped playing.").
+			SetColor(ColorInfo), nil
 	}
 
 	skippedTracks := min(amount, len(queue.Tracks))
 	queue.Tracks = queue.Tracks[skippedTracks:]
 
 	if len(queue.Tracks) == 0 {
+		// If we've skipped all tracks, stop the player
 		if err := player.Update(context.TODO(), lavalink.WithNullTrack()); err != nil {
-			return "", fmt.Errorf("error while stopping track: %w", err)
+			return nil, fmt.Errorf("error while stopping track: %w", err)
 		}
-		return "No more tracks in the queue. Stopped playing.", nil
+		return discord.NewEmbedBuilder().
+			SetDescription("Skipped all tracks. No more tracks in the queue. Stopped playing.").
+			SetColor(ColorInfo), nil
 	}
 
 	nextTrack := queue.Tracks[0]
 	if err := player.Update(context.TODO(), lavalink.WithTrack(nextTrack)); err != nil {
-		return "", fmt.Errorf("error while skipping to next track: %w", err)
+		return nil, fmt.Errorf("error while skipping to next track: %w", err)
 	}
 
-	return fmt.Sprintf("Skipped %d %s. Now playing: %s",
-		skippedTracks,
-		pluralize("track", skippedTracks),
-		nextTrack.Info.Title), nil
+	return discord.NewEmbedBuilder().
+		SetTitle("Skipped Track(s)").
+		SetDescription(fmt.Sprintf("Skipped %d %s.\n\nNow playing: **%s**\nby %s",
+			skippedTracks,
+			pluralize("track", skippedTracks),
+			nextTrack.Info.Title,
+			nextTrack.Info.Author)).
+		SetColor(ColorSuccess).
+		SetThumbnail(*nextTrack.Info.ArtworkURL), nil
 }
 
 func pluralize(word string, count int) string {

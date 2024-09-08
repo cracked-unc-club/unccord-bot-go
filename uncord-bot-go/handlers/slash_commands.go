@@ -111,17 +111,19 @@ func (h *Handler) handleSkip(event *events.ApplicationCommandInteractionCreate) 
 		amount = data
 	}
 
-	message, err := h.skipTracks(*event.GuildID(), amount)
+	embed, err := h.skipTracks(*event.GuildID(), amount)
 	if err != nil {
 		event.CreateMessage(discord.NewMessageCreateBuilder().
-			SetContent(fmt.Sprintf("Error: %s", err)).
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetDescription(fmt.Sprintf("Error: %s", err)).
+				SetColor(ColorError).
+				Build()).
 			SetEphemeral(true).
 			Build())
 		return
 	}
 
 	event.CreateMessage(discord.NewMessageCreateBuilder().
-		SetContent(message).
-		SetEphemeral(true).
+		SetEmbeds(embed.Build()).
 		Build())
 }
