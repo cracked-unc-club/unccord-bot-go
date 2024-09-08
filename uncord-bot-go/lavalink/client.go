@@ -56,9 +56,14 @@ func NewClient(nodeConfig disgolink.NodeConfig, discordClient bot.Client) (*Clie
 }
 
 func (c *Client) PlayTrack(guildID snowflake.ID, channelID snowflake.ID, url string) error {
-	if err := c.ensureConnected(guildID, channelID); err != nil {
-		return fmt.Errorf("failed to ensure connection: %w", err)
+	// First, ensure we're connected to the voice channel
+	err := c.ensureConnected(guildID, channelID)
+	if err != nil {
+		return fmt.Errorf("failed to connect to voice channel: %w", err)
 	}
+
+	// Wait for the connection to be established
+	time.Sleep(5 * time.Second)
 
 	player := c.link.Player(guildID)
 	var loadError error
@@ -156,12 +161,7 @@ func (c *Client) ensureConnected(guildID, channelID snowflake.ID) error {
 			return fmt.Errorf("failed to join voice channel: %w", err)
 		}
 
-		select {
-		case <-state.readyChan:
-			return nil
-		case <-time.After(30 * time.Second):
-			return fmt.Errorf("timeout waiting for connection")
-		}
+		return nil
 	}
 
 	return nil
