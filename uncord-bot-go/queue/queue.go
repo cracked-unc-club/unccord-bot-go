@@ -1,6 +1,8 @@
 package queue
 
 import (
+	"math/rand"
+
 	"github.com/disgoorg/disgolink/v3/lavalink"
 	"github.com/disgoorg/snowflake/v2"
 )
@@ -20,6 +22,12 @@ func (q *Queue) Next() (lavalink.Track, bool) {
 	track := q.Tracks[0]
 	q.Tracks = q.Tracks[1:]
 	return track, true
+}
+
+func (q *Queue) Shuffle() {
+	rand.Shuffle(len(q.Tracks[1:]), func(i, j int) {
+		q.Tracks[i+1], q.Tracks[j+1] = q.Tracks[j+1], q.Tracks[i+1]
+	})
 }
 
 func (q *Queue) Skip(amount int) (lavalink.Track, bool) {

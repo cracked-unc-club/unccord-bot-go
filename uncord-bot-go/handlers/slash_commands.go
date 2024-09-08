@@ -45,6 +45,10 @@ var commands = []discord.ApplicationCommandCreate{
 		Name:        "clearqueue",
 		Description: "Clear the music queue",
 	},
+	discord.SlashCommandCreate{
+		Name:        "shuffle",
+		Description: "Shuffle the music queue",
+	},
 }
 
 func (h *Handler) HandleSlashCommand(event *events.ApplicationCommandInteractionCreate) {
@@ -65,6 +69,8 @@ func (h *Handler) HandleSlashCommand(event *events.ApplicationCommandInteraction
 		h.handleLeave(event)
 	case "clearqueue":
 		h.handleClearQueue(event)
+	case "shuffle":
+		h.handleShuffle(event)
 	}
 }
 
@@ -113,12 +119,12 @@ func (h *Handler) handleQueue(event *events.ApplicationCommandInteractionCreate)
 	}
 
 	var queueList string
-	for i, track := range queue.Tracks {
+	for i, track := range queue.Tracks[1:] {
 		queueList += fmt.Sprintf("%d. %s by %s\n", i+1, track.Info.Title, track.Info.Author)
 	}
 
 	event.CreateMessage(discord.NewMessageCreateBuilder().
-		SetContent("Current queue:").
+		SetContent("").
 		SetEmbeds(discord.NewEmbedBuilder().
 			SetTitle("Music Queue").
 			SetDescription(queueList).
@@ -246,6 +252,29 @@ func (h *Handler) handleClearQueue(event *events.ApplicationCommandInteractionCr
 		SetEmbeds(discord.NewEmbedBuilder().
 			SetTitle("Queue Cleared").
 			SetDescription(fmt.Sprintf("Cleared %d tracks from the queue.", clearedTracks)).
+			SetColor(ColorSuccess).
+			Build()).
+		Build())
+}
+
+func (h *Handler) handleShuffle(event *events.ApplicationCommandInteractionCreate) {
+	queue := h.Queues.Get(*event.GuildID())
+	if len(queue.Tracks) <= 1 {
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetDescription("The queue is currently empty.").
+				SetColor(ColorWarning).
+				Build()).
+			SetEphemeral(true).
+			Build())
+		return
+	}
+
+	queue.Shuffle()
+
+	event.CreateMessage(discord.NewMessageCreateBuilder().
+		SetEmbeds(discord.NewEmbedBuilder().
+			SetDescription("The queue has been shuffled.").
 			SetColor(ColorSuccess).
 			Build()).
 		Build())
