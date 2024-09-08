@@ -35,8 +35,14 @@ func (h *Handler) OnMessageCreate(event *events.MessageCreate) {
 		err := h.play(*guildID, event.ChannelID, *voiceState.ChannelID, content)
 		if err != nil {
 			slog.Error("Failed to play track", slog.Any("err", err))
+			embed := discord.NewEmbedBuilder().
+				SetTitle("Error").
+				SetDescription(fmt.Sprintf("Failed to play the track: %v", err)).
+				SetColor(ColorError).
+				Build()
+
 			_, sendErr := h.Client.Rest().CreateMessage(event.ChannelID, discord.NewMessageCreateBuilder().
-				SetContent(fmt.Sprintf("Failed to play the track: %v", err)).
+				SetEmbeds(embed).
 				SetEphemeral(true).
 				Build())
 			if sendErr != nil {
