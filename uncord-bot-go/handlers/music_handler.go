@@ -12,6 +12,21 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 )
 
+func (h *Handler) OnComponentInteraction(event *events.ComponentInteractionCreate) {
+	if event.GuildID() == nil {
+		return
+	}
+
+	switch event.Data.CustomID() {
+	case "playpause":
+		h.handlePlayPause(event)
+	case "skip":
+		h.handleSkipButton(event)
+	case "rewind":
+		h.handleRewind(event)
+	}
+}
+
 func (h *Handler) play(guildID, commandChannelID, voiceChannelID snowflake.ID, url string) error {
 	err := h.Client.UpdateVoiceState(context.Background(), guildID, &voiceChannelID, false, false)
 	if err != nil {
@@ -105,14 +120,6 @@ func (h *Handler) play(guildID, commandChannelID, voiceChannelID snowflake.ID, u
 	}
 
 	return nil
-}
-
-// Helper function to pluralize "song"
-func pluralize(word string, count int) string {
-	if count == 1 {
-		return word
-	}
-	return word + "s"
 }
 
 func (h *Handler) sendNowPlayingMessage(channelID snowflake.ID, track lavalink.Track) {
@@ -229,11 +236,20 @@ func (h *Handler) playTrack(guildID snowflake.ID, track lavalink.Track) error {
 
 func (h *Handler) playNextTrack(guildID snowflake.ID) {
 	queue := h.Queues.Get(guildID)
-	nextTrack, ok := queue.Next()
-	if !ok {
-		slog.Info("Queue ended", "guildID", guildID)
+	if len(queue.Tracks) == 0 {
+		// If there are no more tracks, stop the player
+		player := h.Lavalink.ExistingPlayer(guildID)
+		if player != nil {
+			if err := player.Update(context.TODO(), lavalink.WithNullTrack()); err != nil {
+				slog.Error("Failed to stop player", slog.Any("err", err))
+			}
+		}
+		slog.Info("Queue ended, stopped player", "guildID", guildID)
 		return
 	}
+
+	nextTrack := queue.Tracks[0]
+	queue.Tracks = queue.Tracks[1:]
 
 	err := h.playTrack(guildID, nextTrack)
 	if err != nil {
@@ -241,59 +257,61 @@ func (h *Handler) playNextTrack(guildID snowflake.ID) {
 	}
 }
 
-func (h *Handler) handleSkip(event *events.ComponentInteractionCreate) {
-	player := h.Lavalink.ExistingPlayer(*event.GuildID())
-	queue := h.Queues.Get(*event.GuildID())
-	if player == nil {
+func (h *Handler) handleSkipButton(event *events.ComponentInteractionCreate) {
+	message, err := h.skipTracks(*event.GuildID(), 1)
+	if err != nil {
 		event.CreateMessage(discord.NewMessageCreateBuilder().
-			SetContent("No player found").
-			SetEphemeral(true).
-			Build())
-		return
-	}
-
-	if len(queue.Tracks) == 0 {
-		// If queue is empty, just stop the current track
-		if err := player.Update(context.TODO(), lavalink.WithNullTrack()); err != nil {
-			event.CreateMessage(discord.NewMessageCreateBuilder().
-				SetContent(fmt.Sprintf("Error while stopping track: `%s`", err)).
-				SetEphemeral(true).
-				Build())
-			return
-		}
-		event.CreateMessage(discord.NewMessageCreateBuilder().
-			SetContent("Stopped the current track").
-			SetEphemeral(true).
-			Build())
-		return
-	}
-
-	track, _ := queue.Skip(1)
-	if err := player.Update(context.TODO(), lavalink.WithTrack(track)); err != nil {
-		event.CreateMessage(discord.NewMessageCreateBuilder().
-			SetContent(fmt.Sprintf("Error while skipping track: `%s`", err)).
+			SetContent(fmt.Sprintf("Error: %s", err)).
 			SetEphemeral(true).
 			Build())
 		return
 	}
 
 	event.CreateMessage(discord.NewMessageCreateBuilder().
-		SetContent("Skipped to the next track").
+		SetContent(message).
 		SetEphemeral(true).
 		Build())
 }
 
-func (h *Handler) OnComponentInteraction(event *events.ComponentInteractionCreate) {
-	if event.GuildID() == nil {
-		return
+func (h *Handler) skipTracks(guildID snowflake.ID, amount int) (string, error) {
+	player := h.Lavalink.ExistingPlayer(guildID)
+	queue := h.Queues.Get(guildID)
+	if player == nil {
+		return "", fmt.Errorf("no player found")
 	}
 
-	switch event.Data.CustomID() {
-	case "playpause":
-		h.handlePlayPause(event)
-	case "skip":
-		h.handleSkip(event)
-	case "rewind":
-		h.handleRewind(event)
+	if len(queue.Tracks) == 0 {
+		// If queue is empty, stop the current track
+		if err := player.Update(context.TODO(), lavalink.WithNullTrack()); err != nil {
+			return "", fmt.Errorf("error while stopping track: %w", err)
+		}
+		return "No more tracks in the queue. Stopped playing.", nil
 	}
+
+	skippedTracks := min(amount, len(queue.Tracks))
+	queue.Tracks = queue.Tracks[skippedTracks:]
+
+	if len(queue.Tracks) == 0 {
+		if err := player.Update(context.TODO(), lavalink.WithNullTrack()); err != nil {
+			return "", fmt.Errorf("error while stopping track: %w", err)
+		}
+		return "No more tracks in the queue. Stopped playing.", nil
+	}
+
+	nextTrack := queue.Tracks[0]
+	if err := player.Update(context.TODO(), lavalink.WithTrack(nextTrack)); err != nil {
+		return "", fmt.Errorf("error while skipping to next track: %w", err)
+	}
+
+	return fmt.Sprintf("Skipped %d %s. Now playing: %s",
+		skippedTracks,
+		pluralize("track", skippedTracks),
+		nextTrack.Info.Title), nil
+}
+
+func pluralize(word string, count int) string {
+	if count == 1 {
+		return word
+	}
+	return word + "s"
 }

@@ -23,6 +23,23 @@ var commands = []discord.ApplicationCommandCreate{
 		Name:        "player",
 		Description: "Control the music player",
 	},
+	discord.SlashCommandCreate{
+		Name:        "skip",
+		Description: "Skip the currently playing song",
+	},
+}
+
+func (h *Handler) HandleSlashCommand(event *events.ApplicationCommandInteractionCreate) {
+	switch event.Data.CommandName() {
+	case "nowplaying":
+		h.handleNowPlaying(event)
+	case "queue":
+		h.handleQueue(event)
+	case "player":
+		h.handlePlayer(event)
+	case "skip":
+		h.handleSkip(event)
+	}
 }
 
 func (h *Handler) RegisterCommands(client bot.Client) error {
@@ -39,17 +56,6 @@ func (h *Handler) RegisterGuildCommands(client bot.Client, guildID snowflake.ID)
 
 	slog.Info("Successfully registered guild commands", slog.Any("guildID", guildID))
 	return nil
-}
-
-func (h *Handler) HandleSlashCommand(event *events.ApplicationCommandInteractionCreate) {
-	switch event.Data.CommandName() {
-	case "nowplaying":
-		h.handleNowPlaying(event)
-	case "queue":
-		h.handleQueue(event)
-	case "player":
-		h.handlePlayer(event)
-	}
 }
 
 func (h *Handler) handleNowPlaying(event *events.ApplicationCommandInteractionCreate) {
@@ -97,4 +103,25 @@ func (h *Handler) handleQueue(event *events.ApplicationCommandInteractionCreate)
 
 func (h *Handler) handlePlayer(event *events.ApplicationCommandInteractionCreate) {
 	h.createControlPanel(event.Channel().ID(), *event.GuildID())
+}
+
+func (h *Handler) handleSkip(event *events.ApplicationCommandInteractionCreate) {
+	amount := 1
+	if data, ok := event.SlashCommandInteractionData().OptInt("amount"); ok {
+		amount = data
+	}
+
+	message, err := h.skipTracks(*event.GuildID(), amount)
+	if err != nil {
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetContent(fmt.Sprintf("Error: %s", err)).
+			SetEphemeral(true).
+			Build())
+		return
+	}
+
+	event.CreateMessage(discord.NewMessageCreateBuilder().
+		SetContent(message).
+		SetEphemeral(true).
+		Build())
 }
