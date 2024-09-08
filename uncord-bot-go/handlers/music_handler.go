@@ -33,54 +33,56 @@ func (h *Handler) play(guildID, commandChannelID, voiceChannelID snowflake.ID, u
 		return fmt.Errorf("failed to join voice channel: %w", err)
 	}
 
-	player := h.Lavalink.Player(guildID)
 	queue := h.Queues.Get(guildID)
+	player := h.Lavalink.Player(guildID)
 
 	var loadError error
 	var trackLoaded bool
-	var addedTrack lavalink.Track
+	var addedTracks []lavalink.Track
+
+	isPlaying := player != nil && player.Track() != nil
+
+	startIfNeeded := func(track lavalink.Track) {
+		if !isPlaying {
+			err := h.playTrack(guildID, track)
+			if err != nil {
+				slog.Error("Failed to play track", slog.Any("err", err))
+			} else {
+				trackLoaded = true
+				isPlaying = true
+				// Post the player control panel only for the first song
+				h.createControlPanel(commandChannelID, guildID)
+			}
+		} else {
+			slog.Info("Added track to queue", "track", track.Info.Title, "position", len(queue.Tracks))
+			trackLoaded = true
+		}
+	}
 
 	h.Lavalink.BestNode().LoadTracksHandler(context.TODO(), url, disgolink.NewResultHandler(
 		func(track lavalink.Track) {
-			queuePosition := len(queue.Tracks)
 			queue.Add(track)
-			addedTrack = track
-
-			if queuePosition == 0 {
-				err := h.playTrack(guildID, track)
-				if err != nil {
-					slog.Error("Failed to play track", slog.Any("err", err))
-				} else {
-					trackLoaded = true
-					// Post the player control panel only for the first song
-					h.createControlPanel(commandChannelID, guildID)
-				}
-			} else {
-				slog.Info("Added track to queue", "track", track.Info.Title, "position", queuePosition+1)
-				trackLoaded = true
-			}
+			addedTracks = append(addedTracks, track)
+			startIfNeeded(track)
 		},
 		func(playlist lavalink.Playlist) {
-			slog.Info("Loaded a playlist", "name", playlist.Info.Name, "trackCount", len(playlist.Tracks))
+			addedTracks = append(addedTracks, playlist.Tracks...)
+			for _, track := range playlist.Tracks {
+				queue.Add(track)
+			}
 			if len(playlist.Tracks) > 0 {
-				err := player.Update(context.TODO(), lavalink.WithTrack(playlist.Tracks[0]))
-				if err != nil {
-					loadError = fmt.Errorf("error updating player with playlist: %w", err)
-				} else {
-					trackLoaded = true
-				}
+				startIfNeeded(playlist.Tracks[0])
 			}
 		},
 		func(tracks []lavalink.Track) {
-			slog.Info("Loaded search results", "trackCount", len(tracks))
 			if len(tracks) > 0 {
-				err := player.Update(context.TODO(), lavalink.WithTrack(tracks[0]))
-				if err != nil {
-					loadError = fmt.Errorf("error updating player with search result: %w", err)
-				} else {
-					trackLoaded = true
+				addedTracks = append(addedTracks, tracks...)
+				for _, track := range tracks {
+					queue.Add(track)
 				}
+				startIfNeeded(tracks[0])
 			}
+			trackLoaded = true
 		},
 		func() {
 			loadError = fmt.Errorf("no matches found for URL: %s", url)
@@ -99,22 +101,29 @@ func (h *Handler) play(guildID, commandChannelID, voiceChannelID snowflake.ID, u
 	}
 
 	// Send appropriate message based on queue position
-	queuePosition := len(queue.Tracks) - 1
 	var embed *discord.EmbedBuilder
-	if queuePosition == 0 {
-		embed = discord.NewEmbedBuilder().
-			SetTitle("Now Playing").
-			SetDescription(addedTrack.Info.Title).
-			SetColor(ColorSuccess).
-			SetThumbnail(*addedTrack.Info.ArtworkURL)
+	if len(addedTracks) == 1 {
+		track := addedTracks[0]
+		if !isPlaying {
+			embed = discord.NewEmbedBuilder().
+				SetTitle("Now Playing").
+				SetDescription(fmt.Sprintf("**%s**", track.Info.Title)).
+				SetColor(ColorSuccess).
+				SetThumbnail(*track.Info.ArtworkURL)
+		} else {
+			embed = discord.NewEmbedBuilder().
+				SetTitle("Added to Queue").
+				SetDescription(fmt.Sprintf("**%s**\n\nPosition in queue: %d",
+					track.Info.Title,
+					len(queue.Tracks))).
+				SetColor(ColorInfo).
+				SetThumbnail(*track.Info.ArtworkURL)
+		}
 	} else {
 		embed = discord.NewEmbedBuilder().
-			SetTitle("Added to Queue").
-			SetDescription(fmt.Sprintf("**%s**\n\nPosition in queue: %d",
-				addedTrack.Info.Title,
-				queuePosition+1)).
-			SetColor(ColorInfo).
-			SetThumbnail(*addedTrack.Info.ArtworkURL)
+			SetTitle("Playlist Added to Queue").
+			SetDescription(fmt.Sprintf("Added %d tracks to the queue", len(addedTracks))).
+			SetColor(ColorInfo)
 	}
 
 	_, err = h.Client.Rest().CreateMessage(commandChannelID, discord.NewMessageCreateBuilder().
@@ -202,7 +211,7 @@ func (h *Handler) handleRewind(event *events.ComponentInteractionCreate) {
 
 func (h *Handler) playTrack(guildID snowflake.ID, track lavalink.Track) error {
 	player := h.Lavalink.Player(guildID)
-	err := player.Update(context.TODO(), lavalink.WithTrack(track))
+	err := player.Update(context.TODO(), lavalink.WithTrack(track), lavalink.WithPaused(false))
 	if err != nil {
 		slog.Error("Error updating player", slog.Any("err", err))
 		return err
