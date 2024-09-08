@@ -1,75 +1,40 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync"
-	"uncord-bot-go/lavalink"
 
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/disgolink/v3/disgolink"
+	"github.com/disgoorg/disgolink/v3/lavalink"
 	"github.com/disgoorg/snowflake/v2"
 )
 
 type Handler struct {
-	lavalink        *lavalink.Client
-	client          bot.Client
-	voiceStateCache *VoiceStateCache
+	Client   bot.Client
+	Lavalink disgolink.Client
 }
 
-type VoiceStateCache struct {
-	cache map[snowflake.ID]map[snowflake.ID]*discord.VoiceState
-	mu    sync.RWMutex
-}
-
-func NewVoiceStateCache() *VoiceStateCache {
-	return &VoiceStateCache{
-		cache: make(map[snowflake.ID]map[snowflake.ID]*discord.VoiceState),
-	}
-}
-
-func (vsc *VoiceStateCache) Update(vs *discord.VoiceState) {
-	vsc.mu.Lock()
-	defer vsc.mu.Unlock()
-	if _, ok := vsc.cache[vs.GuildID]; !ok {
-		vsc.cache[vs.GuildID] = make(map[snowflake.ID]*discord.VoiceState)
-	}
-	vsc.cache[vs.GuildID][vs.UserID] = vs
-}
-
-func (vsc *VoiceStateCache) Get(guildID, userID snowflake.ID) (*discord.VoiceState, bool) {
-	vsc.mu.RLock()
-	defer vsc.mu.RUnlock()
-	if guildStates, ok := vsc.cache[guildID]; ok {
-		if vs, ok := guildStates[userID]; ok {
-			return vs, true
-		}
-	}
-	return nil, false
-}
-
-func NewHandler(lavalink *lavalink.Client, client bot.Client) *Handler {
-	return &Handler{
-		lavalink:        lavalink,
-		client:          client,
-		voiceStateCache: NewVoiceStateCache(),
-	}
+func NewHandler() *Handler {
+	return &Handler{}
 }
 
 func (h *Handler) OnEvent(event bot.Event) {
 	switch e := event.(type) {
 	case *events.MessageCreate:
-		h.handleMessageCreate(e)
+		h.OnMessageCreate(e)
 	case *events.GuildVoiceStateUpdate:
-		h.handleVoiceStateUpdate(e)
+		h.OnVoiceStateUpdate(e)
 	case *events.VoiceServerUpdate:
-		h.handleVoiceServerUpdate(e)
+		h.OnVoiceServerUpdate(e)
 	}
 }
 
-func (h *Handler) handleMessageCreate(event *events.MessageCreate) {
+func (h *Handler) OnMessageCreate(event *events.MessageCreate) {
 	if event.Message.Author.Bot {
 		return
 	}
@@ -81,9 +46,9 @@ func (h *Handler) handleMessageCreate(event *events.MessageCreate) {
 			return
 		}
 
-		voiceState, ok := h.voiceStateCache.Get(*guildID, event.Message.Author.ID)
-		if !ok || voiceState.ChannelID == nil {
-			_, err := h.client.Rest().CreateMessage(event.ChannelID, discord.NewMessageCreateBuilder().
+		voiceState, exists := h.Client.Caches().VoiceState(*guildID, event.Message.Author.ID)
+		if !exists || voiceState.ChannelID == nil {
+			_, err := h.Client.Rest().CreateMessage(event.ChannelID, discord.NewMessageCreateBuilder().
 				SetContent("You must be in a voice channel to play music.").Build())
 			if err != nil {
 				slog.Error("Failed to send message", slog.Any("err", err))
@@ -91,37 +56,99 @@ func (h *Handler) handleMessageCreate(event *events.MessageCreate) {
 			return
 		}
 
-		// Play the track
-		go func() {
-			err := h.lavalink.PlayTrack(*guildID, *voiceState.ChannelID, content)
-			if err != nil {
-				slog.Error("Failed to play track", slog.Any("err", err))
-				_, sendErr := h.client.Rest().CreateMessage(event.ChannelID, discord.NewMessageCreateBuilder().
-					SetContent(fmt.Sprintf("Failed to play the track: %v", err)).Build())
-				if sendErr != nil {
-					slog.Error("Failed to send error message", slog.Any("err", sendErr))
-				}
-				return
+		err := h.play(*guildID, *voiceState.ChannelID, content)
+		if err != nil {
+			slog.Error("Failed to play track", slog.Any("err", err))
+			_, sendErr := h.Client.Rest().CreateMessage(event.ChannelID, discord.NewMessageCreateBuilder().
+				SetContent(fmt.Sprintf("Failed to play the track: %v", err)).Build())
+			if sendErr != nil {
+				slog.Error("Failed to send error message", slog.Any("err", sendErr))
 			}
+			return
+		}
 
-			_, err = h.client.Rest().CreateMessage(event.ChannelID, discord.NewMessageCreateBuilder().
-				SetContent("Now playing: "+content).Build())
-			if err != nil {
-				slog.Error("Failed to send message", slog.Any("err", err))
-			}
-		}()
+		_, sendErr := h.Client.Rest().CreateMessage(event.ChannelID, discord.NewMessageCreateBuilder().
+			SetContent("Now playing: "+content).Build())
+		if sendErr != nil {
+			slog.Error("Failed to send message", slog.Any("err", sendErr))
+		}
 	}
 }
 
-func (h *Handler) handleVoiceStateUpdate(event *events.GuildVoiceStateUpdate) {
-	h.voiceStateCache.Update(&event.VoiceState)
-	if event.VoiceState.UserID == h.client.ApplicationID() {
+func (h *Handler) OnVoiceStateUpdate(event *events.GuildVoiceStateUpdate) {
+	if event.VoiceState.UserID == h.Client.ApplicationID() {
 		slog.Info("Voice state updated", "guildID", event.VoiceState.GuildID, "channelID", event.VoiceState.ChannelID, "sessionID", event.VoiceState.SessionID)
-		h.lavalink.OnVoiceStateUpdate(event.VoiceState.GuildID, *event.VoiceState.ChannelID, event.VoiceState.SessionID)
+		h.Lavalink.OnVoiceStateUpdate(context.TODO(), event.VoiceState.GuildID, event.VoiceState.ChannelID, event.VoiceState.SessionID)
 	}
 }
 
-func (h *Handler) handleVoiceServerUpdate(event *events.VoiceServerUpdate) {
+func (h *Handler) OnVoiceServerUpdate(event *events.VoiceServerUpdate) {
 	slog.Info("Voice server updated", "guildID", event.GuildID, "endpoint", *event.Endpoint, "token", event.Token)
-	h.lavalink.OnVoiceServerUpdate(event.GuildID, event.Token, *event.Endpoint)
+	h.Lavalink.OnVoiceServerUpdate(context.TODO(), event.GuildID, event.Token, *event.Endpoint)
+}
+
+func (h *Handler) play(guildID, channelID snowflake.ID, url string) error {
+	err := h.Client.UpdateVoiceState(context.Background(), guildID, &channelID, false, false)
+	if err != nil {
+		return fmt.Errorf("failed to join voice channel: %w", err)
+	}
+
+	player := h.Lavalink.Player(guildID)
+	if player == nil {
+		return fmt.Errorf("could not create player")
+	}
+
+	var loadError error
+	var trackLoaded bool
+
+	h.Lavalink.BestNode().LoadTracksHandler(context.TODO(), url, disgolink.NewResultHandler(
+		func(track lavalink.Track) {
+			slog.Info("Loaded a single track", "track", track.Info.Title)
+			err := player.Update(context.TODO(), lavalink.WithTrack(track))
+			if err != nil {
+				loadError = fmt.Errorf("error updating player: %w", err)
+			} else {
+				trackLoaded = true
+			}
+		},
+		func(playlist lavalink.Playlist) {
+			slog.Info("Loaded a playlist", "name", playlist.Info.Name, "trackCount", len(playlist.Tracks))
+			if len(playlist.Tracks) > 0 {
+				err := player.Update(context.TODO(), lavalink.WithTrack(playlist.Tracks[0]))
+				if err != nil {
+					loadError = fmt.Errorf("error updating player with playlist: %w", err)
+				} else {
+					trackLoaded = true
+				}
+			}
+		},
+		func(tracks []lavalink.Track) {
+			slog.Info("Loaded search results", "trackCount", len(tracks))
+			if len(tracks) > 0 {
+				err := player.Update(context.TODO(), lavalink.WithTrack(tracks[0]))
+				if err != nil {
+					loadError = fmt.Errorf("error updating player with search result: %w", err)
+				} else {
+					trackLoaded = true
+				}
+			}
+		},
+		func() {
+			loadError = fmt.Errorf("no matches found for URL: %s", url)
+		},
+		func(err error) {
+			loadError = fmt.Errorf("error loading track: %w", err)
+		},
+	))
+
+	if loadError != nil {
+		return loadError
+	}
+
+	if !trackLoaded {
+		return fmt.Errorf("no track loaded for URL: %s", url)
+	}
+
+	slog.Info("Track loaded and playback started", "guildID", guildID, "url", url)
+	return nil
 }
