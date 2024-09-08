@@ -41,6 +41,10 @@ var commands = []discord.ApplicationCommandCreate{
 		Name:        "leave",
 		Description: "Leave the voice channel",
 	},
+	discord.SlashCommandCreate{
+		Name:        "clearqueue",
+		Description: "Clear the music queue",
+	},
 }
 
 func (h *Handler) HandleSlashCommand(event *events.ApplicationCommandInteractionCreate) {
@@ -59,6 +63,8 @@ func (h *Handler) HandleSlashCommand(event *events.ApplicationCommandInteraction
 		h.handleResume(event)
 	case "leave":
 		h.handleLeave(event)
+	case "clearqueue":
+		h.handleClearQueue(event)
 	}
 }
 
@@ -207,24 +213,43 @@ func (h *Handler) handleResume(event *events.ApplicationCommandInteractionCreate
 		Build())
 }
 
-// func (b *Bot) disconnect(event *events.ApplicationCommandInteractionCreate, data discord.SlashCommandInteractionData) error {
-// 	player := b.Lavalink.ExistingPlayer(*event.GuildID())
-// 	if player == nil {
-// 		return event.CreateMessage(discord.MessageCreate{
-// 			Content: "No player found",
-// 		})
-// 	}
+func (h *Handler) handleClearQueue(event *events.ApplicationCommandInteractionCreate) {
+	guildID := *event.GuildID()
+	queue := h.Queues.Get(guildID)
+	player := h.Lavalink.Player(guildID)
 
-// 	if err := b.Client.UpdateVoiceState(context.TODO(), *event.GuildID(), nil, false, false); err != nil {
-// 		return event.CreateMessage(discord.MessageCreate{
-// 			Content: fmt.Sprintf("Error while disconnecting: `%s`", err),
-// 		})
-// 	}
+	if player == nil || len(queue.Tracks) == 0 {
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetDescription("There are no tracks in the queue to clear.").
+				SetColor(ColorWarning).
+				Build()).
+			SetEphemeral(true).
+			Build())
+		return
+	}
 
-// 	return event.CreateMessage(discord.MessageCreate{
-// 		Content: "Player disconnected",
-// 	})
-// }
+	currentTrack := player.Track()
+	initialQueueSize := len(queue.Tracks)
+
+	if currentTrack != nil {
+		// Keep the currently playing track
+		queue.Tracks = []lavalink.Track{*currentTrack}
+	} else {
+		// Clear all tracks if nothing is currently playing
+		queue.Tracks = []lavalink.Track{}
+	}
+
+	clearedTracks := initialQueueSize - len(queue.Tracks)
+
+	event.CreateMessage(discord.NewMessageCreateBuilder().
+		SetEmbeds(discord.NewEmbedBuilder().
+			SetTitle("Queue Cleared").
+			SetDescription(fmt.Sprintf("Cleared %d tracks from the queue.", clearedTracks)).
+			SetColor(ColorSuccess).
+			Build()).
+		Build())
+}
 
 func (h *Handler) handleLeave(event *events.ApplicationCommandInteractionCreate) {
 	player := h.Lavalink.Player(*event.GuildID())
