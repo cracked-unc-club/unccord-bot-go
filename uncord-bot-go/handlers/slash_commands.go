@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/disgolink/v3/lavalink"
 	"github.com/disgoorg/snowflake/v2"
 )
 
@@ -27,6 +29,18 @@ var commands = []discord.ApplicationCommandCreate{
 		Name:        "skip",
 		Description: "Skip the currently playing song",
 	},
+	discord.SlashCommandCreate{
+		Name:        "pause",
+		Description: "Pause the music player",
+	},
+	discord.SlashCommandCreate{
+		Name:        "resume",
+		Description: "Resume the music player",
+	},
+	discord.SlashCommandCreate{
+		Name:        "leave",
+		Description: "Leave the voice channel",
+	},
 }
 
 func (h *Handler) HandleSlashCommand(event *events.ApplicationCommandInteractionCreate) {
@@ -39,6 +53,12 @@ func (h *Handler) HandleSlashCommand(event *events.ApplicationCommandInteraction
 		h.handlePlayer(event)
 	case "skip":
 		h.handleSkip(event)
+	case "pause":
+		h.handlePause(event)
+	case "resume":
+		h.handleResume(event)
+	case "leave":
+		h.handleLeave(event)
 	}
 }
 
@@ -71,7 +91,7 @@ func (h *Handler) handleNowPlaying(event *events.ApplicationCommandInteractionCr
 
 	currentTrack := queue.Tracks[0]
 	event.CreateMessage(discord.NewMessageCreateBuilder().
-		SetContent(fmt.Sprintf("Now playing: %s by %s", currentTrack.Info.Title, currentTrack.Info.Author)).
+		SetContent(fmt.Sprintf("Now playing: **%s**", currentTrack.Info.Title)).
 		SetEphemeral(true).
 		Build())
 }
@@ -118,12 +138,134 @@ func (h *Handler) handleSkip(event *events.ApplicationCommandInteractionCreate) 
 				SetDescription(fmt.Sprintf("Error: %s", err)).
 				SetColor(ColorError).
 				Build()).
-			SetEphemeral(true).
 			Build())
 		return
 	}
 
 	event.CreateMessage(discord.NewMessageCreateBuilder().
 		SetEmbeds(embed.Build()).
+		Build())
+}
+
+func (h *Handler) handlePause(event *events.ApplicationCommandInteractionCreate) {
+	player := h.Lavalink.Player(*event.GuildID())
+	if player == nil {
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetDescription("No music player found for this guild.").
+				SetColor(ColorWarning).
+				Build()).
+			Build())
+		return
+	}
+
+	if err := player.Update(context.TODO(), lavalink.WithPaused(true)); err != nil {
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetDescription(fmt.Sprintf("Error: %s", err)).
+				SetColor(ColorError).
+				Build()).
+			Build())
+		return
+	}
+
+	event.CreateMessage(discord.NewMessageCreateBuilder().
+		SetEmbeds(discord.NewEmbedBuilder().
+			SetDescription("Music paused.").
+			SetColor(ColorSuccess).
+			Build()).
+		Build())
+}
+
+func (h *Handler) handleResume(event *events.ApplicationCommandInteractionCreate) {
+	player := h.Lavalink.Player(*event.GuildID())
+	if player == nil {
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetDescription("No music player found for this guild.").
+				SetColor(ColorWarning).
+				Build()).
+			Build())
+		return
+	}
+
+	if err := player.Update(context.TODO(), lavalink.WithPaused(false)); err != nil {
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetDescription(fmt.Sprintf("Error: %s", err)).
+				SetColor(ColorError).
+				Build()).
+			Build())
+		return
+	}
+
+	event.CreateMessage(discord.NewMessageCreateBuilder().
+		SetEmbeds(discord.NewEmbedBuilder().
+			SetDescription("Music resumed.").
+			SetColor(ColorSuccess).
+			Build()).
+		Build())
+}
+
+// func (b *Bot) disconnect(event *events.ApplicationCommandInteractionCreate, data discord.SlashCommandInteractionData) error {
+// 	player := b.Lavalink.ExistingPlayer(*event.GuildID())
+// 	if player == nil {
+// 		return event.CreateMessage(discord.MessageCreate{
+// 			Content: "No player found",
+// 		})
+// 	}
+
+// 	if err := b.Client.UpdateVoiceState(context.TODO(), *event.GuildID(), nil, false, false); err != nil {
+// 		return event.CreateMessage(discord.MessageCreate{
+// 			Content: fmt.Sprintf("Error while disconnecting: `%s`", err),
+// 		})
+// 	}
+
+// 	return event.CreateMessage(discord.MessageCreate{
+// 		Content: "Player disconnected",
+// 	})
+// }
+
+func (h *Handler) handleLeave(event *events.ApplicationCommandInteractionCreate) {
+	player := h.Lavalink.Player(*event.GuildID())
+	if player == nil {
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetDescription("No music player found for this guild.").
+				SetColor(ColorWarning).
+				Build()).
+			Build())
+		return
+	}
+
+	if err := player.Destroy(context.TODO()); err != nil {
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetDescription(fmt.Sprintf("Error: %s", err)).
+				SetColor(ColorError).
+				Build()).
+			Build())
+		return
+	}
+
+	// Clear the queue
+	h.Queues.Get(*event.GuildID()).Tracks = nil
+
+	// Disconnect bot from voice channel
+	if err := h.Client.UpdateVoiceState(context.TODO(), *event.GuildID(), nil, false, false); err != nil {
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetEmbeds(discord.NewEmbedBuilder().
+				SetDescription(fmt.Sprintf("Error while disconnecting: `%s`", err)).
+				SetColor(ColorError).
+				Build()).
+			Build())
+		return
+	}
+
+	event.CreateMessage(discord.NewMessageCreateBuilder().
+		SetEmbeds(discord.NewEmbedBuilder().
+			SetDescription("Left the voice channel and cleared the queue.").
+			SetColor(ColorSuccess).
+			Build()).
 		Build())
 }

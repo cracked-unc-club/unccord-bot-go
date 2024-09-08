@@ -104,15 +104,14 @@ func (h *Handler) play(guildID, commandChannelID, voiceChannelID snowflake.ID, u
 	if queuePosition == 0 {
 		embed = discord.NewEmbedBuilder().
 			SetTitle("Now Playing").
-			SetDescription(fmt.Sprintf("**%s**\nby %s", addedTrack.Info.Title, addedTrack.Info.Author)).
+			SetDescription(addedTrack.Info.Title).
 			SetColor(ColorSuccess).
 			SetThumbnail(*addedTrack.Info.ArtworkURL)
 	} else {
 		embed = discord.NewEmbedBuilder().
 			SetTitle("Added to Queue").
-			SetDescription(fmt.Sprintf("**%s**\nby %s\n\nPosition in queue: %d",
+			SetDescription(fmt.Sprintf("**%s**\n\nPosition in queue: %d",
 				addedTrack.Info.Title,
-				addedTrack.Info.Author,
 				queuePosition+1)).
 			SetColor(ColorInfo).
 			SetThumbnail(*addedTrack.Info.ArtworkURL)
@@ -126,26 +125,6 @@ func (h *Handler) play(guildID, commandChannelID, voiceChannelID snowflake.ID, u
 	}
 
 	return nil
-}
-
-func (h *Handler) sendNowPlayingMessage(channelID snowflake.ID, track lavalink.Track) {
-	_, err := h.Client.Rest().CreateMessage(channelID, discord.NewMessageCreateBuilder().
-		SetContent(fmt.Sprintf("Now playing: %s by %s", track.Info.Title, track.Info.Author)).
-		SetEphemeral(true).
-		Build())
-	if err != nil {
-		slog.Error("Failed to send now playing message", slog.Any("err", err))
-	}
-}
-
-func (h *Handler) sendAddedToQueueMessage(channelID snowflake.ID, track lavalink.Track, position int) {
-	_, err := h.Client.Rest().CreateMessage(channelID, discord.NewMessageCreateBuilder().
-		SetContent(fmt.Sprintf("Added to queue: %s by %s (Position: %d)", track.Info.Title, track.Info.Author, position+1)).
-		SetEphemeral(true).
-		Build())
-	if err != nil {
-		slog.Error("Failed to send added to queue message", slog.Any("err", err))
-	}
 }
 
 func (h *Handler) createControlPanel(channelID, guildID snowflake.ID) {
@@ -166,8 +145,8 @@ func (h *Handler) createControlPanel(channelID, guildID snowflake.ID) {
 	_, err := h.Client.Rest().CreateMessage(channelID, discord.NewMessageCreateBuilder().
 		SetContent("").
 		SetEmbeds(discord.NewEmbedBuilder().
-			SetTitle(currentTrack.Info.Title).
-			SetDescription(currentTrack.Info.Author).
+			SetTitle("Media Controls").
+			SetDescription(currentTrack.Info.Title).
 			SetColor(ColorInfo).
 			SetImage(*currentTrack.Info.ArtworkURL).
 			Build(),
@@ -319,11 +298,10 @@ func (h *Handler) skipTracks(guildID snowflake.ID, amount int) (*discord.EmbedBu
 
 	return discord.NewEmbedBuilder().
 		SetTitle("Skipped Track(s)").
-		SetDescription(fmt.Sprintf("Skipped %d %s.\n\nNow playing: **%s**\nby %s",
+		SetDescription(fmt.Sprintf("Skipped %d %s.\n\nNow playing: **%s**",
 			skippedTracks,
 			pluralize("track", skippedTracks),
-			nextTrack.Info.Title,
-			nextTrack.Info.Author)).
+			nextTrack.Info.Title)).
 		SetColor(ColorSuccess).
 		SetThumbnail(*nextTrack.Info.ArtworkURL), nil
 }
