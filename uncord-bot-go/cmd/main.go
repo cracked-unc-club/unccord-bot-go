@@ -15,6 +15,7 @@ import (
 	"github.com/disgoorg/disgo/cache"
 	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/disgolink/v3/disgolink"
+	"github.com/disgoorg/snowflake/v2"
 )
 
 func main() {
@@ -52,6 +53,14 @@ func main() {
 		return
 	}
 	defer client.Close(context.TODO())
+
+	// Register commands after connecting to the gateway
+	if err = b.RegisterCommands(client); err != nil {
+		slog.Error("Failed to register commands", slog.Any("err", err))
+		return
+	}
+
+	b.RegisterGuildCommands(client, snowflake.ID(1112943203755233350))
 
 	node, err := b.Lavalink.AddNode(ctx, disgolink.NodeConfig{
 		Name:     "local",
