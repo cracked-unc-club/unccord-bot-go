@@ -19,6 +19,10 @@ var commands = []discord.ApplicationCommandCreate{
 		Name:        "queue",
 		Description: "Show the current music queue",
 	},
+	discord.SlashCommandCreate{
+		Name:        "player",
+		Description: "Control the music player",
+	},
 }
 
 func (h *Handler) RegisterCommands(client bot.Client) error {
@@ -43,6 +47,8 @@ func (h *Handler) HandleSlashCommand(event *events.ApplicationCommandInteraction
 		h.handleNowPlaying(event)
 	case "queue":
 		h.handleQueue(event)
+	case "player":
+		h.handlePlayer(event)
 	}
 }
 
@@ -87,4 +93,8 @@ func (h *Handler) handleQueue(event *events.ApplicationCommandInteractionCreate)
 			Build()).
 		SetEphemeral(true).
 		Build())
+}
+
+func (h *Handler) handlePlayer(event *events.ApplicationCommandInteractionCreate) {
+	h.createControlPanel(event.Channel().ID(), *event.GuildID())
 }

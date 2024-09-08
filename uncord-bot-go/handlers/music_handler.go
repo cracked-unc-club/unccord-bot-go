@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -38,6 +37,8 @@ func (h *Handler) play(guildID, commandChannelID, voiceChannelID snowflake.ID, u
 					slog.Error("Failed to play track", slog.Any("err", err))
 				} else {
 					trackLoaded = true
+					// Post the player control panel only for the first song
+					h.createControlPanel(commandChannelID, guildID)
 				}
 			} else {
 				slog.Info("Added track to queue", "track", track.Info.Title, "position", queuePosition+1)
@@ -137,14 +138,20 @@ func (h *Handler) sendAddedToQueueMessage(channelID snowflake.ID, track lavalink
 func (h *Handler) createControlPanel(channelID, guildID snowflake.ID) {
 	queue := h.Queues.Get(guildID)
 	if len(queue.Tracks) == 0 {
-		slog.Error("No tracks in queue for guild", slog.Any("guildID", guildID))
+		_, err := h.Client.Rest().CreateMessage(channelID, discord.NewMessageCreateBuilder().
+			SetContent("No songs in the queue.").
+			SetEphemeral(true).
+			Build())
+		if err != nil {
+			slog.Error("Failed to send empty queue message", slog.Any("err", err))
+		}
 		return
 	}
 
 	currentTrack := queue.Tracks[0]
 
 	_, err := h.Client.Rest().CreateMessage(channelID, discord.NewMessageCreateBuilder().
-		SetContent(fmt.Sprintf("Now playing: %s by %s", currentTrack.Info.Title, currentTrack.Info.Author)).
+		SetContent("").
 		SetEmbeds(discord.NewEmbedBuilder().
 			SetTitle(currentTrack.Info.Title).
 			SetDescription(currentTrack.Info.Author).
@@ -191,7 +198,7 @@ func (h *Handler) handleRewind(event *events.ComponentInteractionCreate) {
 	}
 
 	currentPosition := player.Position()
-	newPosition := currentPosition - lavalink.Duration(10*time.Second)
+	newPosition := currentPosition - lavalink.Duration(10_000*lavalink.Millisecond)
 	if newPosition < 0 {
 		newPosition = 0
 	}
