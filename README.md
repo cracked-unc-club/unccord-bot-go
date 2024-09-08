@@ -1,4 +1,3 @@
-
 # UNCCORD BOT GO
 [Join Cracked Unc Club](https://discord.gg/3jfKWTwbeM)
 
@@ -26,10 +25,7 @@ llm integration?
 Twitter integration?
 Automatic cracked unc event organization in your local metropolitian area? 
 
-
 ### Features
-
-
 
 ## Project Structure
 
@@ -56,6 +52,7 @@ uncord-bot-go/
 │   └── workflows/
 │       └── ci.yml            # CI pipeline configuration for GitHub Actions
 │
+├── .env.example              # Example environment variable file
 ├── go.mod                    # Go module file
 └── go.sum                    # Go dependencies
 ```
@@ -65,15 +62,32 @@ uncord-bot-go/
 ### Prerequisites
 
 - [Go 1.20+](https://golang.org/dl/)
-- TODO: Describe the process for obtaining and setting bot token locally
+- [Lavalink](https://github.com/lavalink-devs/Lavalink) server
+- TODO: Describe the process of creating a Discord application and obtaining a bot token
 
 ### Environment Variables
 
-Set the required environment variables:
+1. Copy the `.env.example` file to `.env`:
 
-```bash
-export DISCORD_BOT_TOKEN="your_discord_bot_token"
-```
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file and fill in your actual values:
+
+   ```env
+   DISCORD_TOKEN=your_discord_bot_token_here
+   LAVALINK_HOST=localhost
+   LAVALINK_PORT=2333
+   LAVALINK_PASSWORD=youshallnotpass
+   LAVALINK_SECURE=false
+   ```
+
+3. Load the environment variables:
+
+   ```bash
+   source .env
+   ```
 
 ### Installation
 
@@ -90,11 +104,107 @@ export DISCORD_BOT_TOKEN="your_discord_bot_token"
    go mod download
    ```
 
-3. Run the bot:
+### Running Lavalink
+
+1. Download the latest Lavalink.jar from the [Lavalink releases page](https://github.com/lavalink-devs/Lavalink/releases).
+
+2. Create an `application.yml` file in the same directory as the Lavalink.jar with the following content:
+
+```yaml
+server: # REST and WS server
+  port: 2333
+  address: 0.0.0.0
+  http2:
+    enabled: false
+plugins:
+  youtube:
+    enabled: true
+lavalink:
+  plugins:
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.7.2"
+      snapshot: false
+  server:
+    password: "youshallnotpass"
+    sources:
+      # The default Youtube source is now deprecated and won't receive further updates. Please use https://github.com/lavalink-devs/youtube-source#plugin instead.
+      youtube: false
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      nico: true
+      http: true # warning: keeping HTTP enabled without a proxy configured could expose your server's IP address.
+      local: false
+    filters: # All filters are enabled by default
+      volume: true
+      equalizer: true
+      karaoke: true
+      timescale: true
+      tremolo: true
+      vibrato: true
+      distortion: true
+      rotation: true
+      channelMix: true
+      lowPass: true
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: LOW
+    trackStuckThresholdMs: 10000
+    useSeekGhosting: true
+    youtubePlaylistLoadLimit: 6 # Number of pages at 100 each
+    playerUpdateInterval: 5
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+    gc-warnings: true
+
+metrics:
+  prometheus:
+    enabled: false
+    endpoint: /metrics
+
+sentry:
+  dsn: ""
+  environment: ""
+
+logging:
+  file:
+    path: ./logs/
+
+  level:
+    root: INFO
+    lavalink: DEBUG
+    lavalink.server.io.SocketContext: TRACE
+    com.sedmelluq.discord.lavaplayer.tools.ExceptionTools: DEBUG
+
+  request:
+    enabled: true
+    includeClientInfo: true
+    includeHeaders: false
+    includeQueryString: true
+    includePayload: true
+    maxPayloadLength: 10000
+
+
+  logback:
+    rollingpolicy:
+      max-file-size: 1GB
+      max-history: 30
+   ```
+
+3. Run Lavalink:
 
    ```bash
-   go run cmd/main.go
+   java -jar Lavalink.jar
    ```
+
+### Running the Bot
+
+Run the bot:
+
+```bash
+go run cmd/main.go
+```
 
 ## GitHub Actions CI Pipeline
 
@@ -146,8 +256,12 @@ jobs:
 
 Make sure the following secret is added in your GitHub repository:
 
-- `DISCORD_BOT_TOKEN`: Your Discord bot token.
+- `DISCORD_TOKEN`: Your Discord bot token.
 
 ## Contributing
 
 Feel free to fork this repository, make your changes in a new branch, and submit a pull request.
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.

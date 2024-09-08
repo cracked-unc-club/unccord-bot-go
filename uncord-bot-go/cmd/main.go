@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -21,6 +22,11 @@ func main() {
 	slog.Info("Starting uncord-bot-go...")
 
 	token := os.Getenv("DISCORD_TOKEN")
+	lavalinkHost := os.Getenv("LAVALINK_HOST")
+	lavalinkPort := os.Getenv("LAVALINK_PORT")
+	lavalinkPassword := os.Getenv("LAVALINK_PASSWORD")
+	lavalinkSecure, _ := strconv.ParseBool(os.Getenv("LAVALINK_SECURE"))
+
 	if token == "" {
 		slog.Error("No token provided. Set the DISCORD_TOKEN environment variable.")
 		return
@@ -59,13 +65,14 @@ func main() {
 		return
 	}
 
-	// b.RegisterGuildCommands(client, snowflake.ID(1112943203755233350))
+	// Register guild commands after connecting to the gateway (useful for testing in a specific guild without re-registering)
+	// b.RegisterGuildCommands(client, snowflake.ID(YOUR_GUILD_ID))
 
 	node, err := b.Lavalink.AddNode(ctx, disgolink.NodeConfig{
-		Name:     "local",
-		Address:  "localhost:2333",
-		Password: "youshallnotpass",
-		Secure:   false,
+		Name:     "default",
+		Address:  lavalinkHost + ":" + lavalinkPort,
+		Password: lavalinkPassword,
+		Secure:   lavalinkSecure,
 	})
 	if err != nil {
 		slog.Error("Failed to add node", slog.Any("err", err))
