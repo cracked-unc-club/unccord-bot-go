@@ -59,19 +59,11 @@ func OnReactionAdd(event *events.GuildMessageReactionAdd) {
 	}
 }
 
-// OnReactionRemove handles the removal of a star reaction and updates the star count in the database.
 func OnReactionRemove(event *events.GuildMessageReactionRemove) {
 	// Check if the removed reaction is a star emoji
-	if event.Emoji.Name == "⭐" {
-		// Fetch the message that was reacted to
-		message, err := event.Client().Rest().GetMessage(event.ChannelID, event.MessageID)
-		if err != nil {
-			log.Printf("Error fetching message: %v", err)
-			return
-		}
-
+	if event.Emoji.Name != nil && *event.Emoji.Name == "⭐" {
 		// Decrement the star count in the database
-		err = RemoveStarFromMessage(event.MessageID.String())
+		err := RemoveStarFromMessage(event.MessageID.String())
 		if err != nil {
 			log.Printf("Error removing star from message: %v", err)
 			return
@@ -84,14 +76,41 @@ func OnReactionRemove(event *events.GuildMessageReactionRemove) {
 			return
 		}
 
-		// Optional: if the star count drops to 0, remove it from the starboard
+		// If the star count is 0, remove the message from the starboard
 		if starCount <= 0 {
-			err = RemoveFromStarboard(event.MessageID.String())
+			// Fetch the starboard message ID from the database
+			starboardMessageID, err := GetStarboardMessageID(event.MessageID.String())
 			if err != nil {
-				log.Printf("Error removing message from starboard: %v", err)
+				log.Printf("Error fetching starboard message ID: %v", err)
+				return
 			}
+
+			// Delete the message from the starboard channel
+			err = DeleteStarboardMessage(event.Client, starboardMessageID)
+			if err != nil {
+				log.Printf("Error deleting message from starboard: %v", err)
+			}
+
+			// Optionally, you could delete the row from the database
+			// err = RemoveFromStarboard(event.MessageID.String())
+			// if err != nil {
+			//     log.Printf("Error removing message from starboard: %v", err)
+			// }
 		}
 	}
+}
+
+func GetStarboardMessageID(messageID string) (string, error) {
+	var starboardMessageID string
+	query := `SELECT starboard_message_id FROM starboard WHERE message_id = $1`
+	err := config.DB.QueryRow(query, messageID).Scan(&starboardMessageID)
+	return starboardMessageID, err
+}
+
+func DeleteStarboardMessage(client *discord.Client, starboardMessageID string) error {
+	starboardMessageIDSnowflake := discord.Snowflake(starboardMessageID)
+	err := client.Rest().DeleteMessage(config.AppConfig.StarboardChannelID, starboardMessageIDSnowflake)
+	return err
 }
 
 func RemoveStarFromMessage(messageID string) error {
@@ -106,16 +125,16 @@ func RemoveFromStarboard(messageID string) error {
 	return err
 }
 
-func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Message, starCount int) {
-	// Safely handle the author's avatar URL
-	avatarURL := ""
-	if message.Author.AvatarURL() != nil {
-		avatarURL = *message.Author.AvatarURL()
-	}
+func UpdateStarboardMessageID(messageID, starboardMessageID string) error {
+	query := `UPDATE starboard SET starboard_message_id = $1 WHERE message_id = $2`
+	_, err := config.DB.Exec(query, starboardMessageID, messageID)
+	return err
+}
 
+func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Message, starCount int) error {
 	// Create the embed for the starred message
 	embedBuilder := discord.NewEmbedBuilder().
-		SetTitle(fmt.Sprintf("⭐ %d", starCount)). // Add star count in title
+		SetTitle(fmt.Sprintf("⭐ %d # %s", starCount, event.ChannelID.String())). // Add star count in title
 		SetDescription(message.Content).                                          // Add message content
 		AddField("Source", fmt.Sprintf("[Jump!](https://discord.com/channels/%s/%s/%s)", event.GuildID.String(), event.ChannelID.String(), event.MessageID.String()), false). // Jump link to the message
 		SetAuthorName(message.Author.Username).                                   // Add the author's username
@@ -123,17 +142,26 @@ func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Mes
 		SetTimestamp(message.CreatedAt).                                          // Timestamp of the original message
 		SetFooterText("From #" + event.ChannelID.String())                        // Channel name in the footer
 
-	// If there are any attachments (e.g., an image), add them to the embed
 	if len(message.Attachments) > 0 {
 		embedBuilder.SetImage(message.Attachments[0].URL) // Add the first attachment as an image
 	}
 
 	embed := embedBuilder.Build()
 
-	// Send the embed to the starboard channel
-	_, err := event.Client().Rest().CreateMessage(config.AppConfig.StarboardChannelID, discord.NewMessageCreateBuilder().AddEmbeds(embed).Build())
+	// Send the embed to the starboard channel and capture the message ID
+	starboardMessage, err := event.Client().Rest().CreateMessage(config.AppConfig.StarboardChannelID, discord.NewMessageCreateBuilder().AddEmbeds(embed).Build())
 	if err != nil {
 		log.Printf("Error sending message to starboard: %v", err)
+		return err
 	}
+
+	// Update the database with the starboard message ID
+	err = UpdateStarboardMessageID(event.MessageID.String(), starboardMessage.ID.String())
+	if err != nil {
+		log.Printf("Error updating starboard message ID in database: %v", err)
+		return err
+	}
+
+	return nil
 }
 
