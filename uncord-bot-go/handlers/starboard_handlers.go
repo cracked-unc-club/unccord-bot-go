@@ -59,6 +59,53 @@ func OnReactionAdd(event *events.GuildMessageReactionAdd) {
 	}
 }
 
+// OnReactionRemove handles the removal of a star reaction and updates the star count in the database.
+func OnReactionRemove(event *events.GuildMessageReactionRemove) {
+	// Check if the removed reaction is a star emoji
+	if event.Emoji.Name == "⭐" {
+		// Fetch the message that was reacted to
+		message, err := event.Client().Rest().GetMessage(event.ChannelID, event.MessageID)
+		if err != nil {
+			log.Printf("Error fetching message: %v", err)
+			return
+		}
+
+		// Decrement the star count in the database
+		err = RemoveStarFromMessage(event.MessageID.String())
+		if err != nil {
+			log.Printf("Error removing star from message: %v", err)
+			return
+		}
+
+		// Fetch the updated star count
+		starCount, err := GetStarredMessage(event.MessageID.String())
+		if err != nil {
+			log.Printf("Error fetching star count: %v", err)
+			return
+		}
+
+		// Optional: if the star count drops to 0, remove it from the starboard
+		if starCount <= 0 {
+			err = RemoveFromStarboard(event.MessageID.String())
+			if err != nil {
+				log.Printf("Error removing message from starboard: %v", err)
+			}
+		}
+	}
+}
+
+func RemoveStarFromMessage(messageID string) error {
+	query := `UPDATE starboard SET star_count = star_count - 1 WHERE message_id = $1 AND star_count > 0`
+	_, err := config.DB.Exec(query, messageID)
+	return err
+}
+
+func RemoveFromStarboard(messageID string) error {
+	query := `DELETE FROM starboard WHERE message_id = $1`
+	_, err := config.DB.Exec(query, messageID)
+	return err
+}
+
 func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Message, starCount int) {
 	// Safely handle the author's avatar URL
 	avatarURL := ""

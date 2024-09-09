@@ -43,6 +43,7 @@ func main() {
 		bot.WithEventListenerFunc(handlers.OnReactionAdd),
 		bot.WithEventListenerFunc(handlers.OnMessageCreate),
 		bot.WithEventListenerFunc(handlers.OnMessageCreate),
+		bot.WithEventListenerFunc(handlers.OnReactionRemove),
 	)
 	if err != nil {
 		slog.Error("Error while building disgo client", slog.Any("err", err))
