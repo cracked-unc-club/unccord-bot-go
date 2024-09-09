@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log"
+	"strconv"
 	"uncord-bot-go/config"
 
 	"github.com/disgoorg/disgo/discord"
@@ -11,9 +12,9 @@ import (
 // InsertStaredMessage handles the insertion of a new stared message, a
 // adding it to the posgres database
 func InsertStaredMessage(messageID, channelID, authorID, content string) error {
-	query := `INSERT INTO starboard(message_id, chanel_id, author_id, content, star_count)
+	query := `INSERT INTO starboard(message_id, channel_id, author_id, content, star_count)
 	VALUES($1, $2, $3, $4, 1)
-	ON CONFLICT(mesage_id) DO UPDATE SET star_count = starboard.star_count + 1`
+	ON CONFLICT(message_id) DO UPDATE SET star_count = starboard.star_count + 1`
 	_, err := config.DB.Exec(query, messageID, channelID, authorID, content)
 	return err
 }
@@ -62,7 +63,7 @@ func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Mes
 	embed := discord.NewEmbedBuilder().
 		SetTitle("Starred Message").
 		SetDescription(message.Content).
-		AddField("Stars", string(starCount), true).
+		AddField("Stars", strconv.Itoa(starCount), true).
 		SetAuthorName(message.Author.Username).
 		SetTimestamp(message.CreatedAt).
 		SetFooterText("From #" + event.ChannelID.String()).

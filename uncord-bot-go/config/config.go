@@ -56,7 +56,7 @@ func LoadConfig() {
 
 func validateConfig() {
 	if AppConfig.DBHost == "" || AppConfig.DBPort == "" || AppConfig.DBUser == "" ||
-		AppConfig.DBPassword == "" || AppConfig.DBName == "" || AppConfig.DiscordToken == "" || AppConfig.StarboardChannelID == "" {
+		AppConfig.DBPassword == "" || AppConfig.DBName == "" || AppConfig.DiscordToken == "" || AppConfig.StarboardChannelID == 0 {
 		log.Fatal("One or more required environment variables are missing")
 	}
 }

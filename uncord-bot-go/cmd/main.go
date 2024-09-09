@@ -28,7 +28,8 @@ func main() {
 		slog.Error("Error loading .env file: %v", err)
 	}
 
-	config.LoadConfig() // Correct function name
+	config.LoadConfig() // load configuration
+	config.ConnectDB() // connect to database
 
 	// Create the Disgo client with the appropriate intents and event listener
 	client, err := disgo.New(config.AppConfig.DiscordToken,
