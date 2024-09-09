@@ -5,8 +5,10 @@ import (
 	"log"
 	"uncord-bot-go/config"
 
+	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/snowflake/v2"
 )
 
 // InsertStaredMessage handles the insertion of a new stared message, a
@@ -86,7 +88,7 @@ func OnReactionRemove(event *events.GuildMessageReactionRemove) {
 			}
 
 			// Delete the message from the starboard channel
-			err = DeleteStarboardMessage(event.Client, starboardMessageID)
+			err = DeleteStarboardMessage(event.Client(), starboardMessageID)
 			if err != nil {
 				log.Printf("Error deleting message from starboard: %v", err)
 			}
@@ -107,9 +109,20 @@ func GetStarboardMessageID(messageID string) (string, error) {
 	return starboardMessageID, err
 }
 
-func DeleteStarboardMessage(client *discord.Client, starboardMessageID string) error {
-	starboardMessageIDSnowflake := discord.Snowflake(starboardMessageID)
-	err := client.Rest().DeleteMessage(config.AppConfig.StarboardChannelID, starboardMessageIDSnowflake)
+// DeleteStarboardMessage deletes a message from the starboard channel.
+func DeleteStarboardMessage(client bot.Client, starboardMessageID string) error {
+	// Parse the starboard message ID from string to snowflake.ID
+	starboardMessageIDSnowflake, err := snowflake.Parse(starboardMessageID)
+	if err != nil {
+		log.Printf("Error parsing starboard message ID: %v", err)
+		return err
+	}
+
+	// Delete the message from the starboard channel
+	err = client.Rest().DeleteMessage(config.AppConfig.StarboardChannelID, starboardMessageIDSnowflake)
+	if err != nil {
+		log.Printf("Error deleting message from starboard: %v", err)
+	}
 	return err
 }
 
@@ -132,6 +145,12 @@ func UpdateStarboardMessageID(messageID, starboardMessageID string) error {
 }
 
 func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Message, starCount int) error {
+	// Safely handle the author's avatar URL
+	avatarURL := ""
+	if message.Author.AvatarURL() != nil {
+		avatarURL = *message.Author.AvatarURL()
+	}
+
 	// Create the embed for the starred message
 	embedBuilder := discord.NewEmbedBuilder().
 		SetTitle(fmt.Sprintf("⭐ %d # %s", starCount, event.ChannelID.String())). // Add star count in title
