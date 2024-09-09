@@ -285,6 +285,8 @@ func (h *Handler) skipTracks(guildID snowflake.ID, amount int) (*discord.EmbedBu
 		if err := player.Update(context.TODO(), lavalink.WithNullTrack()); err != nil {
 			return nil, fmt.Errorf("error while stopping track: %w", err)
 		}
+		// Reset the player state
+		h.Lavalink.RemovePlayer(guildID)
 		return discord.NewEmbedBuilder().
 			SetDescription("Skipped all tracks. No more tracks in the queue. Stopped playing.").
 			SetColor(ColorInfo), nil
