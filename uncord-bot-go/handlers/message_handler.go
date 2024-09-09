@@ -1,10 +1,22 @@
 package handlers
 
 import (
+	"log"
+	"uncord-bot-go/config"
+
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
-	"log"
 )
+
+// InsertStaredMessage handles the insertion of a new stared message, a
+// adding it to the posgres database
+func InsertStaredMessage(messageID, channelID, authorID, content string) error {
+	query := `INSERT INTO starboard(message_id, chanel_id, author_id, content, star_count)
+	VALUES($1, $2, $3, $4, 1)
+	ON CONFLICT(mesage_id) DO UPDATE SET star_count = starboard.star_count + 1`
+	_, err := config.DB.Exec(query, messageID, channelID, authorID, content)
+	return err
+}
 
 // OnMessageCreate handles message creation events.
 func OnMessageCreate(event *events.MessageCreate) {
