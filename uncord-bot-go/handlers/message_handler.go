@@ -17,6 +17,14 @@ func InsertStaredMessage(messageID, channelID, authorID, content string) error {
 	_, err := config.DB.Exec(query, messageID, channelID, authorID, content)
 	return err
 }
+// GetStarredMessage retrieves the number of stars for a given message ID
+// from the postgres database.
+func GetStarredMessage(messageID string) (int, error) {
+	var starCount int
+	query := `SELECT star_count FROM starboard WHERE message_id = $1`
+	err := config.DB.QueryRow(query, messageID).Scan(&starCount)
+	return starCount, err
+}
 
 // OnMessageCreate handles message creation events.
 func OnMessageCreate(event *events.MessageCreate) {
