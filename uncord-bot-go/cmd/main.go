@@ -7,7 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"uncord-bot-go/handlers"  // Local module import for handlers
+	"github.com/joho/godotenv"
+
+	"uncord-bot-go/config"
+	"uncord-bot-go/handlers" // Local module import for handlers
+
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/gateway"
@@ -17,15 +21,16 @@ func main() {
 	// Log starting the bot
 	slog.Info("Starting uncord-bot-go...")
 
-	// Get the token from the environment variable
-	token := os.Getenv("DISCORD_TOKEN")
-	if token == "" {
-		slog.Error("No token provided. Set the DISCORD_TOKEN environment variable.")
-		return
+	// Load enviornment variables from .env file (for local development)
+	err := godotenv.Load()
+	if err != nil {
+		slog.Error("Error loading .env file: %v", err)
 	}
 
+	config.LoadConfig() // Correct function name
+
 	// Create the Disgo client with the appropriate intents and event listener
-	client, err := disgo.New(token,
+	client, err := disgo.New(config.AppConfig.DiscordToken,
 		bot.WithGatewayConfigOpts(
 			gateway.WithIntents(
 				gateway.IntentGuildMessages,    // Listen for guild message events
