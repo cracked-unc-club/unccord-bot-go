@@ -10,8 +10,9 @@ import (
 	"github.com/joho/godotenv"
 
 	"uncord-bot-go/config"
-	"uncord-bot-go/handlers" // Local module import for handlers
+	"uncord-bot-go/handlers"
 
+	// Local module import for handlers
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/gateway"
@@ -35,9 +36,12 @@ func main() {
 			gateway.WithIntents(
 				gateway.IntentGuildMessages,    // Listen for guild message events
 				gateway.IntentMessageContent,   // Listen for message content (for reading message text)
+				gateway.IntentGuildMessageReactions,    // Listen for reactions on messages
 			),
 		),
-		bot.WithEventListenerFunc(handlers.OnMessageCreate), // Correct function name
+		bot.WithEventListenerFunc(handlers.OnReactionAdd),
+		bot.WithEventListenerFunc(handlers.OnMessageCreate),
+		bot.WithEventListenerFunc(handlers.OnMessageCreate),
 	)
 	if err != nil {
 		slog.Error("Error while building disgo client", slog.Any("err", err))

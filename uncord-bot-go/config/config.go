@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"strconv"
+
+	"github.com/disgoorg/snowflake/v2"
 )
 
 type Config struct {
@@ -17,7 +19,7 @@ type Config struct {
 	DBName   		string
 
 	//Starboard configuration
-	StarboardChannelID string
+	StarboardChannelID snowflake.ID
 	StarThreshold	   int
 
 	// Other Settings (e.g., Discord Token)
@@ -36,7 +38,7 @@ func LoadConfig() {
 		DBUser: os.Getenv("DB_USER"),
 		DBPassword: os.Getenv("DB_PASSWORD"),
 		DBName: os.Getenv("DB_NAME"),
-		StarboardChannelID: os.Getenv("STARBOARD_CHANNEL_ID"),
+		StarboardChannelID: snowflake.GetEnv("STARBOARD_CHANNEL_ID"),
 		DiscordToken: os.Getenv("DISCORD_TOKEN"),
 	}
 
