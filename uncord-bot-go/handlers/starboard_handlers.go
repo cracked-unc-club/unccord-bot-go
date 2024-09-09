@@ -1,8 +1,8 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
-	"strconv"
 	"uncord-bot-go/config"
 
 	"github.com/disgoorg/disgo/discord"
@@ -60,20 +60,33 @@ func OnReactionAdd(event *events.GuildMessageReactionAdd) {
 }
 
 func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Message, starCount int) {
-	embed := discord.NewEmbedBuilder().
-		SetTitle("Starred Message").
-		SetDescription(message.Content).
-		AddField("Stars", strconv.Itoa(starCount), true).
-		SetAuthorName(message.Author.Username).
-		SetTimestamp(message.CreatedAt).
-		SetFooterText("From #" + event.ChannelID.String()).
-		Build()
-	
+	// Safely handle the author's avatar URL
+	avatarURL := ""
+	if message.Author.AvatarURL() != nil {
+		avatarURL = *message.Author.AvatarURL()
+	}
+
+	// Create the embed for the starred message
+	embedBuilder := discord.NewEmbedBuilder().
+		SetTitle(fmt.Sprintf("⭐ %d", starCount)). // Add star count in title
+		SetDescription(message.Content).                                          // Add message content
+		AddField("Source", fmt.Sprintf("[Jump!](https://discord.com/channels/%s/%s/%s)", event.GuildID.String(), event.ChannelID.String(), event.MessageID.String()), false). // Jump link to the message
+		SetAuthorName(message.Author.Username).                                   // Add the author's username
+		SetAuthorIcon(avatarURL).                                                 // Add the author's avatar URL
+		SetTimestamp(message.CreatedAt).                                          // Timestamp of the original message
+		SetFooterText("From #" + event.ChannelID.String())                        // Channel name in the footer
+
+	// If there are any attachments (e.g., an image), add them to the embed
+	if len(message.Attachments) > 0 {
+		embedBuilder.SetImage(message.Attachments[0].URL) // Add the first attachment as an image
+	}
+
+	embed := embedBuilder.Build()
+
+	// Send the embed to the starboard channel
 	_, err := event.Client().Rest().CreateMessage(config.AppConfig.StarboardChannelID, discord.NewMessageCreateBuilder().AddEmbeds(embed).Build())
 	if err != nil {
 		log.Printf("Error sending message to starboard: %v", err)
-		
 	}
-
 }
 
