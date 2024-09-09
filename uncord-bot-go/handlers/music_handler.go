@@ -277,16 +277,6 @@ func (h *Handler) skipTracks(guildID snowflake.ID, amount int) (*discord.EmbedBu
 		return nil, fmt.Errorf("no player found")
 	}
 
-	if len(queue.Tracks) == 0 {
-		// If queue is empty, stop the current track
-		if err := player.Update(context.TODO(), lavalink.WithNullTrack()); err != nil {
-			return nil, fmt.Errorf("error while stopping track: %w", err)
-		}
-		return discord.NewEmbedBuilder().
-			SetDescription("No more tracks in the queue. Stopped playing.").
-			SetColor(ColorInfo), nil
-	}
-
 	skippedTracks := min(amount, len(queue.Tracks))
 	queue.Tracks = queue.Tracks[skippedTracks:]
 
