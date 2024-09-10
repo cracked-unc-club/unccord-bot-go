@@ -7,7 +7,6 @@ on:
     branches: [main]
 
 jobs:
-
   audit:
     runs-on: ubuntu-20.04
     steps:
@@ -18,22 +17,38 @@ jobs:
       with:
         go-version: 1.23
 
-    - name: verify dependencies
+    # Navigate to the correct directory before verifying dependencies
+    - name: Verify dependencies
       run: |
         cd uncord-bot-go
         go mod verify
 
+    # Build the application
     - name: Build
-      run: go build ./cmd/main.go
+      run: |
+        cd uncord-bot-go
+        go build ./cmd/main.go
 
+    # Run go vet to catch issues
     - name: Run go vet
-      run: go vet ./...
+      run: |
+        cd uncord-bot-go
+        go vet ./...
 
+    # Install golint for linting Go code
     - name: Install golint
-      run: go install golang.org/x/lint/golint@latest
+      run: |
+        cd uncord-bot-go
+        go install golang.org/x/lint/golint@latest
 
+    # Run golint to lint the code
     - name: Run golint
-      run: golint ./...
+      run: |
+        cd uncord-bot-go
+        golint ./...
 
+    # Run tests
     - name: Run tests
-      run: go test -race -vet=off ./...
+      run: |
+        cd uncord-bot-go
+        go test -race -vet=off ./...
