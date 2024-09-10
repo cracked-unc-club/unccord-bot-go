@@ -3,6 +3,7 @@ package config
 // Configuration handler for the bot
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -55,18 +56,19 @@ func LoadConfig() {
 
 }
 
-func validateConfig() {
+func validateConfig() error {
 	if AppConfig.DBHost == "" || AppConfig.DBPort == "" || AppConfig.DBUser == "" ||
 		AppConfig.DBPassword == "" || AppConfig.DBName == "" || AppConfig.DiscordToken == "" || AppConfig.StarboardChannelID == 0 {
-		log.Fatal("One or more required environment variables are missing")
+		return fmt.Errorf("one or more required environment variables are missing")
 	}
+	return nil
 }
 
-// GetEnv returns the value of an environment Variable or a fallback
-func GetEnv(key, fallback string) string {
-	value, exists := os.LookupEnv(key)
-	if !exists {
-		return fallback
-	}
-	return value
-}
+// // GetEnv returns the value of an environment Variable or a fallback
+// func GetEnv(key, fallback string) string {
+// 	value, exists := os.LookupEnv(key)
+// 	if !exists {
+// 		return fallback
+// 	}
+// 	return value
+// }
