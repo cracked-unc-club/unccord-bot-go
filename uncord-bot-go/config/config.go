@@ -60,6 +60,7 @@ func LoadConfig() {
 
 }
 
+// ValidateConfig checks if the required environment variables are set.
 func ValidateConfig() error {
 	if AppConfig.DBHost == "" || AppConfig.DBPort == "" || AppConfig.DBUser == "" ||
 		AppConfig.DBPassword == "" || AppConfig.DBName == "" || AppConfig.DiscordToken == "" || AppConfig.StarboardChannelID == 0 {
