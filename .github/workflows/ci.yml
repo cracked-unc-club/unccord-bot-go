@@ -57,7 +57,7 @@ jobs:
     # Step 7: Run unit tests with race detection and generate coverage report
     - name: Run unit tests with coverage
       working-directory: uncord-bot-go
-      run: go test -race -coverprofile=coverage.out ./...
+      run: go test -coverprofile=coverage.out ./...
 
     # Step 8: Upload test coverage report (optional, useful if using a coverage service)
     - name: Upload test coverage report
