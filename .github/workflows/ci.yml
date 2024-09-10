@@ -10,23 +10,8 @@ jobs:
   CI:
     runs-on: ubuntu-20.04
 
-    services:
-      postgres:
-        image: postgres:13  # Use PostgreSQL version 13, modify as needed
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_DB: test_db  # The name of the database
-          POSTGRES_USER: test_user  # The username for the database
-          POSTGRES_PASSWORD: test_password  # The password for the database
-        options: >-
-          --health-cmd "pg_isready -U test_user -d test_db"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
-
+    
     # Step 1: Checkout the code
     - uses: actions/checkout@v2
     
@@ -36,20 +21,7 @@ jobs:
       with:
         go-version: 1.23
 
-    # Step 3: Set environment variables (CI=true for tests that require it)
-    - name: Set CI environment variable
-      run: echo "CI=true" >> $GITHUB_ENV
-
-    # Step 4: Set up environment variables for PostgreSQL
-    - name: Set PostgreSQL environment variables
-      run: |
-        echo "DB_HOST=localhost" >> $GITHUB_ENV
-        echo "DB_PORT=5432" >> $GITHUB_ENV
-        echo "DB_USER=test_user" >> $GITHUB_ENV
-        echo "DB_PASSWORD=test_password" >> $GITHUB_ENV
-        echo "DB_NAME=test_db" >> $GITHUB_ENV
-
-    # Step 5: Cache Go modules (dependencies)
+    # Step 3: Cache Go modules (dependencies)
     - name: Cache Go modules
       id: cache-go-modules
       uses: actions/cache@v2
@@ -61,63 +33,56 @@ jobs:
         restore-keys: |
           go-mod-
 
-    # Step 6: Install dependencies
+    # Step 4: Install dependencies
     - name: Install dependencies
       working-directory: uncord-bot-go
       run: go mod tidy && go mod verify
-      if: steps.cache-go-modules.outputs.cache-hit != 'true'
+      if: steps.cache-go-modules.outputs.cache-hit != 'true' # Only run if cache is not found
 
-    # Step 7: Cache Go build (object cache)
+    # Step 5: Cache Go build (object cache)
     - name: Cache Go build
       uses: actions/cache@v2
       with:
-        path: ./uncord-bot-go
+        path: |
+          ./uncord-bot-go
         key: go-build-${{ hashFiles('uncord-bot-go/go.sum', 'uncord-bot-go/**/*.go') }}-${{ runner.os }}-build
         restore-keys: |
           go-build-${{ runner.os }}-build
 
-    # Step 8: Wait for PostgreSQL to be ready
-    - name: Wait for PostgreSQL to be ready
-      run: |
-        until pg_isready -h localhost -p 5432 -U test_user; do
-          echo "Waiting for PostgreSQL..."
-          sleep 2
-        done
-
-    # Step 9: Build the application
+    # Step 6: Build the application
     - name: Build
       working-directory: uncord-bot-go
       run: go build ./cmd/main.go
 
-    # Step 10: Run unit tests with race detection and generate coverage report
+    # Step 7: Run unit tests with race detection and generate coverage report
     - name: Run unit tests with coverage
       working-directory: uncord-bot-go
       run: go test -race -coverprofile=coverage.out ./...
 
-    # Step 11: Upload test coverage report
+    # Step 8: Upload test coverage report (optional, useful if using a coverage service)
     - name: Upload test coverage report
       uses: actions/upload-artifact@v2
       with:
         name: coverage-report
         path: uncord-bot-go/coverage.out
 
-    # Step 12: Run go vet for static analysis
+    # Step 9: Run go vet for static analysis
     - name: Run go vet
       working-directory: uncord-bot-go
       run: go vet ./...
 
-    # Step 13: Install golint for linting
+    # Step 10: Install golint for linting
     - name: Install golint
       working-directory: uncord-bot-go
       run: go install golang.org/x/lint/golint@latest
 
-    # Step 14: Run golint to check for code quality issues
+    # Step 11: Run golint to check for code quality issues
     - name: Run golint
       working-directory: uncord-bot-go
       run: golint ./...
 
-    # Step 15: Post PR summary comment (Optional)
+    # Step 12: Post PR summary comment (Optional)
     # - name: Post PR summary
 
-    # Step 16: Add label to PR (Optional)
+    # Step 13: Add label to PR
     # - name: Add label to PR
