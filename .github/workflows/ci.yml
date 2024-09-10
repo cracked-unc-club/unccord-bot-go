@@ -20,7 +20,8 @@ jobs:
 
     - name: Verify dependencies
       run: |
-        echo ls -l $GITHUB_WORKSPACE
+        pwd
+        ls -la
 
     - name: Build
       run: go build -v ./...
