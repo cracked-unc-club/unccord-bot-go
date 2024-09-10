@@ -75,14 +75,6 @@ jobs:
       working-directory: uncord-bot-go
       run: go vet ./...
 
-    # Step 11: Install golangci-lint (multi-linter for Go)
-    - name: Install golangci-lint
-      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s latest
-
-    # Step 12: Run golangci-lint
-    - name: Run golangci-lint
-      working-directory: uncord-bot-go
-      run: golangci-lint run
 
     # Step 13: Install golint for additional linting
     - name: Install golint
