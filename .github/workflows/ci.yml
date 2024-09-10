@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  audit:
+  CI:
     runs-on: ubuntu-20.04
 
     steps:
