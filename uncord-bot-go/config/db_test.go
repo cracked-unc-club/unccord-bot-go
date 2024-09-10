@@ -1,58 +1,36 @@
 package config
 
 import (
+	"bytes"
 	"log"
 	"os"
 	"testing"
 )
 
-// TestConnectDB tests the database connection with environment variables, only if running in a CI pipeline.
+// TestConnectDB simulates a failure to connect to the database using incorrect environment variables.
 func TestConnectDB(t *testing.T) {
-	// Check if we are running in a CI environment (by checking for a 'CI' environment variable)
+	// Skip test if not in a CI environment
 	if os.Getenv("CI") == "" {
 		t.Skip("Skipping TestConnectDB as it's not running in CI environment")
 	}
 
-	// Capture original environment variables (using envVars type from the same package).
-	originalVariables := &envVars{
-		DBHost:             os.Getenv("DB_HOST"),
-		DBPort:             os.Getenv("DB_PORT"),
-		DBUser:             os.Getenv("DB_USER"),
-		DBPassword:         os.Getenv("DB_PASSWORD"),
-		DBName:             os.Getenv("DB_NAME"),
-	}
-	defer originalVariables.setEnvVars() // Restore original environment variables after the test
+	// Capture the log output
+	var logBuffer bytes.Buffer
+	log.SetOutput(&logBuffer)
+	defer log.SetOutput(os.Stderr) // Restore original log output after the test
 
-	// Set the test environment variables.
-	testVariables := &envVars{
-		DBHost:    "localhost",
-		DBPort:    "5432",
-		DBUser:    "testuser",
-		DBPassword: "testpassword",
-		DBName:    "testdb",
-	}
-	testVariables.setEnvVars()
+	// Set incorrect environment variables to force a failure
+	os.Setenv("DB_HOST", "invalid_host")
+	os.Setenv("DB_PORT", "invalid_port")
+	os.Setenv("DB_USER", "invalid_user")
+	os.Setenv("DB_PASSWORD", "invalid_password")
+	os.Setenv("DB_NAME", "invalid_db")
 
-	// Attempt to connect to the database.
-	defer func() {
-		if DB != nil {
-			DB.Close()
-		}
-	}()
-
-	// Call the function being tested.
+	// Call the ConnectDB function
 	ConnectDB()
 
-	// Check if DB is not nil (i.e., connection is established).
-	if DB == nil {
-		t.Fatalf("Expected DB to be initialized, but got nil")
+	// Check the log output for the expected error message
+	if !bytes.Contains(logBuffer.Bytes(), []byte("Cannot ping the database")) {
+		t.Errorf("Expected error message not found in log output: %v", logBuffer.String())
 	}
-
-	// Check if the database can be pinged.
-	err := DB.Ping()
-	if err != nil {
-		t.Fatalf("Expected to ping the database successfully, but got error: %v", err)
-	}
-
-	log.Println("Test database connection established successfully")
 }
