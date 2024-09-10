@@ -1,33 +1,44 @@
-name: uncord-bot-go CI
+name: Build
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
 
+  audit:
+    runs-on: ubuntu-20.04
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+    - uses: actions/checkout@v2
 
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
         go-version: 1.23
 
-    - name: Install dependencies
+    - name: Verify dependencies
       run: |
-        cd unccord-bot-go
-        go mod download
+        echo ls -l $GITHUB_WORKSPACE
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Install staticcheck
+      run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+    - name: Run staticcheck
+      run: staticcheck ./...
+
+    - name: Install golint
+      run: go install golang.org/x/lint/golint@latest
+
+    - name: Run golint
+      run: golint ./...
 
     - name: Run tests
-      run: go test ./...
-
-    - name: Build the bot
-      run: go build -o uncord-bot-go cmd/main.go
+      run: go test -race -vet=off ./...
