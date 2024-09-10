@@ -9,46 +9,118 @@ on:
 jobs:
   audit:
     runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2
 
+    steps:
+    
+    # Step 1: Checkout the code
+    - uses: actions/checkout@v2
+    
+    # Step 2: Set up Go environment
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
         go-version: 1.23
 
-    # Navigate to the correct directory before verifying dependencies
-    - name: Verify dependencies
-      run: |
-        cd uncord-bot-go
-        go mod verify
+    # Step 3: Cache Go modules to speed up builds
+    - name: Cache Go modules
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          /go/pkg/mod
+        key: go-mod-${{ hashFiles('uncord-bot-go/go.sum') }}
+        restore-keys: |
+          go-mod-
 
-    # Build the application
+    # Step 4: Install dependencies (verify go.mod and go.sum)
+    - name: Install dependencies
+      working-directory: uncord-bot-go
+      run: go mod tidy && go mod verify
+
+    # Step 5: Cache Go build (optional, useful for larger projects)
+    - name: Cache Go build
+      uses: actions/cache@v2
+      with:
+        path: |
+          ./uncord-bot-go
+        key: go-build-${{ hashFiles('uncord-bot-go/go.sum') }}-${{ runner.os }}-build
+        restore-keys: |
+          go-build-${{ runner.os }}-build
+
+    # Step 6: Build the application
     - name: Build
-      run: |
-        cd uncord-bot-go
-        go build ./cmd/main.go
+      working-directory: uncord-bot-go
+      run: go build ./cmd/main.go
 
-    # Run go vet to catch issues
+    # Step 7: Run unit tests with race detection and generate coverage report
+    - name: Run unit tests with coverage
+      working-directory: uncord-bot-go
+      run: go test -race -coverprofile=coverage.out ./...
+
+    # Step 8: Upload test coverage report (optional, useful if using a coverage service)
+    - name: Upload test coverage report
+      uses: actions/upload-artifact@v2
+      with:
+        name: coverage-report
+        path: uncord-bot-go/coverage.out
+
+    # Step 9: Enforce code coverage threshold (e.g., 80%)
+    - name: Enforce coverage threshold
+      working-directory: uncord-bot-go
+      run: |
+        go tool cover -func=coverage.out | awk '/^total:.*statements/ { if ($3 < 80) exit 1 }'
+
+    # Step 10: Run go vet for static analysis
     - name: Run go vet
-      run: |
-        cd uncord-bot-go
-        go vet ./...
+      working-directory: uncord-bot-go
+      run: go vet ./...
 
-    # Install golint for linting Go code
+    # Step 11: Install golangci-lint (multi-linter for Go)
+    - name: Install golangci-lint
+      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s latest
+
+    # Step 12: Run golangci-lint
+    - name: Run golangci-lint
+      working-directory: uncord-bot-go
+      run: golangci-lint run
+
+    # Step 13: Install golint for additional linting
     - name: Install golint
-      run: |
-        cd uncord-bot-go
-        go install golang.org/x/lint/golint@latest
+      working-directory: uncord-bot-go
+      run: go install golang.org/x/lint/golint@latest
 
-    # Run golint to lint the code
+    # Step 14: Run golint
     - name: Run golint
-      run: |
-        cd uncord-bot-go
-        golint ./...
+      working-directory: uncord-bot-go
+      run: golint ./...
 
-    # Run tests
-    - name: Run tests
+    # Step 15: Check for documentation updates
+    - name: Check documentation
       run: |
-        cd uncord-bot-go
-        go test -race -vet=off ./...
+        git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -qE '^docs/|README.md' || echo "No documentation changes found!"
+
+    # Step 16: Generate Go documentation (optional)
+    - name: Generate Go docs
+      working-directory: uncord-bot-go
+      run: go doc ./...
+
+    # Step 17: Post PR summary comment (Optional)
+    - name: Post PR summary
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: "CI Summary"
+        message: |
+          - Build: ${{ steps.build.outcome }}
+          - Tests: ${{ steps.tests.outcome }}
+          - Lint: ${{ steps.lint.outcome }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # Step 18: Label PR as ready for merge if all checks pass
+    - name: Add label to PR
+      uses: actions-ecosystem/action-add-labels@v1
+      if: success()
+      with:
+        labels: "ready-for-merge"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
