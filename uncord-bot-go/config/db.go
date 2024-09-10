@@ -6,13 +6,14 @@ import (
 	"log"
 	"os"
 
+	// Import the PostgreSQL driver as a blank import, required for the database/sql package.
 	_ "github.com/lib/pq"
 )
 
-
-
+// DB holds the global connection pool to the PostgreSQL database.
 var DB *sql.DB
 
+// ConnectDB initializes the database connection using environment variables and establishes a connection pool.
 func ConnectDB() {
 	connStr := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",

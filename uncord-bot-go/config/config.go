@@ -10,6 +10,7 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 )
 
+// Config holds the configuration details for the bot, including database credentials, starboard settings, and Discord token.
 type Config struct {
 	// Database configuration
 	DBHost    		string
@@ -27,10 +28,10 @@ type Config struct {
 
 }
 
-// Global variable to accesss the configuration
+// AppConfig holds the global configuration for the bot.
 var AppConfig Config
 
-// INitialize the configuration
+// LoadConfig initializes the configuration by loading environment variables and validating them.
 func LoadConfig() {
 	AppConfig = Config{
 		DBHost: os.Getenv("DB_HOST"),

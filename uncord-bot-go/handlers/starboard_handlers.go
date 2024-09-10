@@ -11,8 +11,7 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 )
 
-// InsertStaredMessage handles the insertion of a new stared message, a
-// adding it to the posgres database
+// InsertStaredMessage handles the insertion of a new starred message into the PostgreSQL database.
 func InsertStaredMessage(messageID, channelID, authorID, content string) error {
 	query := `INSERT INTO starboard(message_id, channel_id, author_id, content, star_count)
 	VALUES($1, $2, $3, $4, 1)
@@ -20,8 +19,8 @@ func InsertStaredMessage(messageID, channelID, authorID, content string) error {
 	_, err := config.DB.Exec(query, messageID, channelID, authorID, content)
 	return err
 }
-// GetStarredMessage retrieves the number of stars for a given message ID
-// from the postgres database.
+
+// GetStarredMessage retrieves the number of stars for a given message ID from the PostgreSQL database.
 func GetStarredMessage(messageID string) (int, error) {
 	var starCount int
 	query := `SELECT star_count FROM starboard WHERE message_id = $1`
@@ -29,7 +28,7 @@ func GetStarredMessage(messageID string) (int, error) {
 	return starCount, err
 }
 
-//OnReactionAdd handles star reactions and posts the message to the starboard if it reacehs the threshold
+// OnReactionAdd handles star reactions and posts the message to the starboard if it reaches the threshold.
 func OnReactionAdd(event *events.GuildMessageReactionAdd) {
 	// Check if the reaction is a star emoji
 	if *event.Emoji.Name == "⭐" {
@@ -61,6 +60,7 @@ func OnReactionAdd(event *events.GuildMessageReactionAdd) {
 	}
 }
 
+// OnReactionRemove handles the removal of reactions and updates the starboard accordingly.
 func OnReactionRemove(event *events.GuildMessageReactionRemove) {
 	// Check if the removed reaction is a star emoji
 	if event.Emoji.Name != nil && *event.Emoji.Name == "⭐" {
@@ -102,6 +102,7 @@ func OnReactionRemove(event *events.GuildMessageReactionRemove) {
 	}
 }
 
+// GetStarboardMessageID retrieves the starboard message ID from the database based on the original message ID.
 func GetStarboardMessageID(messageID string) (string, error) {
 	var starboardMessageID string
 	query := `SELECT starboard_message_id FROM starboard WHERE message_id = $1`
@@ -126,24 +127,28 @@ func DeleteStarboardMessage(client bot.Client, starboardMessageID string) error 
 	return err
 }
 
+// RemoveStarFromMessage decreases the star count of a message in the PostgreSQL database.
 func RemoveStarFromMessage(messageID string) error {
 	query := `UPDATE starboard SET star_count = star_count - 1 WHERE message_id = $1 AND star_count > 0`
 	_, err := config.DB.Exec(query, messageID)
 	return err
 }
 
+// RemoveFromStarboard deletes a message from the starboard in the PostgreSQL database.
 func RemoveFromStarboard(messageID string) error {
 	query := `DELETE FROM starboard WHERE message_id = $1`
 	_, err := config.DB.Exec(query, messageID)
 	return err
 }
 
+// UpdateStarboardMessageID updates the starboard message ID in the PostgreSQL database after the message is posted to the starboard.
 func UpdateStarboardMessageID(messageID, starboardMessageID string) error {
 	query := `UPDATE starboard SET starboard_message_id = $1 WHERE message_id = $2`
 	_, err := config.DB.Exec(query, starboardMessageID, messageID)
 	return err
 }
 
+// PostToStarboard posts a message to the starboard and updates the database with the starboard message ID.
 func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Message, starCount int) error {
 	// Safely handle the author's avatar URL
 	avatarURL := ""
