@@ -92,22 +92,8 @@ jobs:
    
 
     # Step 17: Post PR summary comment (Optional)
-    - name: Post PR summary
-      uses: marocchino/sticky-pull-request-comment@v2
-      with:
-        header: "CI Summary"
-        message: |
-          - Build: ${{ steps.build.outcome }}
-          - Tests: ${{ steps.tests.outcome }}
-          - Lint: ${{ steps.lint.outcome }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # - name: Post PR summary
+    
 
-    # Step 18: Label PR as ready for merge if all checks pass
-    - name: Add label to PR
-      uses: actions-ecosystem/action-add-labels@v1
-      if: success()
-      with:
-        labels: "ready-for-merge"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # # Step 18: Label PR as ready for merge if all checks pass
+    
