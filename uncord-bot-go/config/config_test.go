@@ -112,7 +112,7 @@ func TestValidateConfig(t *testing.T) {
 	dummyEnvironmentVariables.setEnvVars()
 
 	// Validate the configuration
-	err := validateConfig()
+	err := ValidateConfig()
 
 	if err == nil {
 		t.Error("Expected error, got nil")

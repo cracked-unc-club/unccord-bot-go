@@ -52,23 +52,18 @@ func LoadConfig() {
 	AppConfig.StarThreshold = starThreshold
 
 	//Validate the configuration to ensure nothing is missing
-	validateConfig()
+	err = ValidateConfig()
+	if err != nil {
+		log.Fatalf("Error loading configuration: %v", err)
+	}
+
 
 }
 
-func validateConfig() error {
+func ValidateConfig() error {
 	if AppConfig.DBHost == "" || AppConfig.DBPort == "" || AppConfig.DBUser == "" ||
 		AppConfig.DBPassword == "" || AppConfig.DBName == "" || AppConfig.DiscordToken == "" || AppConfig.StarboardChannelID == 0 {
 		return fmt.Errorf("one or more required environment variables are missing")
 	}
 	return nil
 }
-
-// // GetEnv returns the value of an environment Variable or a fallback
-// func GetEnv(key, fallback string) string {
-// 	value, exists := os.LookupEnv(key)
-// 	if !exists {
-// 		return fallback
-// 	}
-// 	return value
-// }
