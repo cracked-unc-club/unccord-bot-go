@@ -91,10 +91,10 @@ jobs:
       run: |
         git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -qE '^docs/|README.md' || echo "No documentation changes found!"
 
-    # Step 16: Generate Go documentation (optional)
+    # Step 16: Generate Go documentation
     - name: Generate Go docs
       working-directory: uncord-bot-go
-      run: go doc ./...
+      run: go doc ./... > docs/docs.md
 
     # Step 17: Post PR summary comment (Optional)
     - name: Post PR summary
