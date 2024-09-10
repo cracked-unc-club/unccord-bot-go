@@ -25,7 +25,7 @@ func OnMessageCreate(event *events.MessageCreate) {
 
 	// Send the response back to the channel
 	if message != "" {
-		_, err := event.Client().Rest().CreateMessage(event.ChannelID, discord.NewMessageCreateBuilder().SetContent(message).Build())
+		_, err := event.Client().Rest().CreateMessage(event.Message.ChannelID, discord.NewMessageCreateBuilder().SetContent(message).Build())
 		if err != nil {
 			log.Printf("Error sending message: %v", err)
 		}
