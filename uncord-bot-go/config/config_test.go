@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+// envVars is a struct that holds the environment variables
 type envVars struct {
     DBHost             string
     DBPort             string
