@@ -15,7 +15,10 @@ services:
       - .env
 
   bot:
-    image: golang:alpine
+    bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
     working_dir: /app
     volumes:
       - ./app:/app
