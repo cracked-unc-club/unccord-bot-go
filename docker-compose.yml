@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+
+  bot:
+    image: golang:alpine
+    working_dir: /app
+    volumes:
+      - ./app:/app
+    command: go run main.go
+    depends_on:
+      - db
+    env_file:
+      - .env
+
+volumes:
+  db_data:
+    driver: local
