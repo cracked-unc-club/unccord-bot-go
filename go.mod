@@ -1,6 +1,6 @@
 module uncord-bot-go
 
-go 1.23.1
+go 1.23
 
 require (
 	github.com/disgoorg/disgo v0.18.11
