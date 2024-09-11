@@ -15,14 +15,13 @@ services:
       - .env
 
   bot:
-    bot:
     build:
       context: .
       dockerfile: Dockerfile
     working_dir: /app
     volumes:
       - ./app:/app
-    command: go run main.go
+    command: go run cmd/main.go
     depends_on:
       - db
     env_file:
