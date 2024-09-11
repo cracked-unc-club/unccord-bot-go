@@ -26,3 +26,9 @@ go.work.sum
 
 compose-dev.yaml
 token
+setup-go.sh
+
+# Custom files
+customfile1.txt
+customfile2.json
+customfile3.yaml
