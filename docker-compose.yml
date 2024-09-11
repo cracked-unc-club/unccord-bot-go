@@ -9,8 +9,8 @@ services:
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - db_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+      #    ports:
+      #      - "5432:5432"
     env_file:
       - .env
 
