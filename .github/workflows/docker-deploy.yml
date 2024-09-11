@@ -8,7 +8,7 @@ on:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
-
+    steps:
     - name: Trigger deploy script on server via SSH
       uses: appleboy/ssh-action@v0.1.3
       with:
