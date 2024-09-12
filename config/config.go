@@ -14,50 +14,51 @@ import (
 // Config holds the configuration details for the bot, including database credentials, starboard settings, and Discord token.
 type Config struct {
 	// Database configuration
-	DBHost    		string
-	DBPort  	 	string
-	DBUser    		string
-	DBPassword 		string
-	DBName   		string
+	DBHost            string
+	DBPort            string
+	DBUser            string
+	DBPassword        string
+	DBName            string
 
-	//Starboard configuration
+	// Starboard configuration
 	StarboardChannelID snowflake.ID
-	StarThreshold	   int
+	StarThreshold      int
 
 	// Other Settings (e.g., Discord Token)
-	DiscordToken string
-
+	DiscordToken      string
 }
 
 // AppConfig holds the global configuration for the bot.
 var AppConfig Config
 
-// LoadConfig initializes the configuration by loading environment variables and validating them.
 func LoadConfig() {
-	AppConfig = Config{
-		DBHost: os.Getenv("DB_HOST"),
-		DBPort: os.Getenv("DB_PORT"),
-		DBUser: os.Getenv("DB_USER"),
-		DBPassword: os.Getenv("DB_PASSWORD"),
-		DBName: os.Getenv("DB_NAME"),
-		StarboardChannelID: snowflake.GetEnv("STARBOARD_CHANNEL_ID"),
-		DiscordToken: os.Getenv("DISCORD_TOKEN"),
-	}
+    // Parse StarboardChannelID as snowflake.ID
+    starboardChannelID, err := snowflake.Parse(os.Getenv("STARBOARD_CHANNEL_ID"))
+    if err != nil {
+        log.Fatalf("Invalid STARBOARD_CHANNEL_ID: %v", err)
+    }
 
-	// Load and parse star threshold
-	starThreshold, err := strconv.Atoi(os.Getenv("STAR_THRESHOLD"))
-	if err != nil {
-		log.Printf("Error parsing STAR_THRESHOLD: %v", err)
-	}
-	AppConfig.StarThreshold = starThreshold
+    // Parse StarThreshold as int
+    starThreshold, err := strconv.Atoi(os.Getenv("STAR_THRESHOLD"))
+    if err != nil {
+        log.Fatalf("Invalid STAR_THRESHOLD: %v", err)
+    }
 
-	//Validate the configuration to ensure nothing is missing
-	err = ValidateConfig()
-	if err != nil {
-		log.Fatalf("Error loading configuration: %v", err)
-	}
+    AppConfig = Config{
+        DBHost:            os.Getenv("DB_HOST"),
+        DBPort:            os.Getenv("DB_PORT"),
+        DBUser:            os.Getenv("DB_USER"),
+        DBPassword:        os.Getenv("DB_PASSWORD"),
+        DBName:            os.Getenv("DB_NAME"),
+        StarboardChannelID: starboardChannelID,
+        StarThreshold:      starThreshold,
+        DiscordToken:      os.Getenv("DISCORD_TOKEN"),
+    }
 
-
+    err = ValidateConfig()
+    if err != nil {
+        log.Fatalf("Error loading configuration: %v", err)
+    }
 }
 
 // ValidateConfig checks if the required environment variables are set.
