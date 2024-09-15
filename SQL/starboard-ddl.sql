@@ -1,5 +1,5 @@
 
--- PostgreSQL DDL for the uncord-bot-go application
+-- PostgreSQL DDL for the unccord-bot-go application
 
 -- Create the starboard table
 CREATE TABLE starboard (

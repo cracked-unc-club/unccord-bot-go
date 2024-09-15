@@ -29,13 +29,13 @@
 #        path: |
 #          ~/.cache/go-build
 #          /go/pkg/mod
-#        key: go-mod-${{ hashFiles('uncord-bot-go/go.sum') }}
+#        key: go-mod-${{ hashFiles('unccord-bot-go/go.sum') }}
 #        restore-keys: |
 #          go-mod-
 #
 #    # Step 4: Install dependencies
 #    - name: Install dependencies
-#      working-directory: uncord-bot-go
+#      working-directory: unccord-bot-go
 #      run: go mod tidy && go mod verify
 #      if: steps.cache-go-modules.outputs.cache-hit != 'true' # Only run if cache is not found
 #
@@ -44,19 +44,19 @@
 #      uses: actions/cache@v2
 #      with:
 #        path: |
-#          ./uncord-bot-go
-#        key: go-build-${{ hashFiles('uncord-bot-go/go.sum', 'uncord-bot-go/**/*.go') }}-${{ runner.os }}-build
+#          ./unccord-bot-go
+#        key: go-build-${{ hashFiles('unccord-bot-go/go.sum', 'unccord-bot-go/**/*.go') }}-${{ runner.os }}-build
 #        restore-keys: |
 #          go-build-${{ runner.os }}-build
 #
 #    # Step 6: Build the application
 #    - name: Build
-#      working-directory: uncord-bot-go
+#      working-directory: unccord-bot-go
 #      run: go build ./cmd/main.go
 #
 #    # Step 7: Run unit tests with race detection and generate coverage report
 #    - name: Run unit tests with coverage
-#      working-directory: uncord-bot-go
+#      working-directory: unccord-bot-go
 #      run: go test -race -coverprofile=coverage.out ./...
 #
 #    # Step 8: Upload test coverage report (optional, useful if using a coverage service)
@@ -64,21 +64,21 @@
 #      uses: actions/upload-artifact@v4
 #      with:
 #        name: coverage-report
-#        path: uncord-bot-go/coverage.out
+#        path: unccord-bot-go/coverage.out
 #
 #    # Step 9: Run go vet for static analysis
 #    - name: Run go vet
-#      working-directory: uncord-bot-go
+#      working-directory: unccord-bot-go
 #      run: go vet ./...
 #
 #    # Step 10: Install golint for linting
 #    - name: Install golint
-#      working-directory: uncord-bot-go
+#      working-directory: unccord-bot-go
 #      run: go install golang.org/x/lint/golint@latest
 #
 #    # Step 11: Run golint to check for code quality issues
 #    - name: Run golint
-#      working-directory: uncord-bot-go
+#      working-directory: unccord-bot-go
 #      run: golint ./...
 #
 #    # Step 12: Post PR summary comment (Optional)

@@ -34,7 +34,7 @@ Automatic cracked unc event organization in your local metropolitian area?
 ## Project Structure
 
 ```
-uncord-bot-go/
+unccord-bot-go/
 │
 ├── cmd/
 │   └── main.go               # Main entry point for the bot
@@ -80,8 +80,8 @@ export DISCORD_BOT_TOKEN="your_discord_bot_token"
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/uncord-bot-go.git
-   cd uncord-bot-go
+   git clone https://github.com/yourusername/unccord-bot-go.git
+   cd unccord-bot-go
    ```
 
 2. Install dependencies:
@@ -109,7 +109,7 @@ The CI pipeline is set up using GitHub Actions. It runs on every push or pull re
 The GitHub Actions workflow is defined in `.github/workflows/ci.yml`:
 
 ```yaml
-name: uncord-bot-go CI
+name: unccord-bot-go CI
 
 on:
   push:
@@ -139,7 +139,7 @@ jobs:
       run: go test ./...
 
     - name: Build the bot
-      run: go build -o uncord-bot-go cmd/main.go
+      run: go build -o unccord-bot-go cmd/main.go
 ```
 
 ### Secrets

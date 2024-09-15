@@ -44,6 +44,12 @@ func LoadConfig() {
         log.Fatalf("Invalid STAR_THRESHOLD: %v", err)
     }
 
+    // Validate the Discord token
+    discordToken := os.Getenv("DISCORD_TOKEN")
+    if discordToken == "" {
+        log.Fatalf("DISCORD_TOKEN is missing or empty")
+    }
+
     AppConfig = Config{
         DBHost:            os.Getenv("DB_HOST"),
         DBPort:            os.Getenv("DB_PORT"),
@@ -52,7 +58,7 @@ func LoadConfig() {
         DBName:            os.Getenv("DB_NAME"),
         StarboardChannelID: starboardChannelID,
         StarThreshold:      starThreshold,
-        DiscordToken:      os.Getenv("DISCORD_TOKEN"),
+        DiscordToken:      discordToken,
     }
 
     err = ValidateConfig()
@@ -60,6 +66,7 @@ func LoadConfig() {
         log.Fatalf("Error loading configuration: %v", err)
     }
 }
+
 
 // ValidateConfig checks if the required environment variables are set.
 func ValidateConfig() error {

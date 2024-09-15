@@ -3,7 +3,7 @@ package handlers
 import (
 	"fmt"
 	"log"
-	"uncord-bot-go/config"
+	"unccord-bot-go/config"
 
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
@@ -11,8 +11,8 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 )
 
-// InsertStaredMessage handles the insertion of a new starred message into the PostgreSQL database.
-func InsertStaredMessage(messageID, channelID, authorID, content string) error {
+// InsertStarredMessage handles the insertion of a new starred message into the PostgreSQL database.
+func InsertStarredMessage(messageID, channelID, authorID, content string) error {
 	query := `INSERT INTO starboard(message_id, channel_id, author_id, content, star_count)
 	VALUES($1, $2, $3, $4, 1)
 	ON CONFLICT(message_id) DO UPDATE SET star_count = starboard.star_count + 1`
@@ -32,7 +32,7 @@ func GetStarredMessage(messageID string) (int, error) {
 func OnReactionAdd(event *events.GuildMessageReactionAdd) {
 	// Check if the reaction is a star emoji
 	if *event.Emoji.Name == "⭐" {
-		//Fetch the message that was reacted to 
+		//Fetch the message that was reacted to
 		message, err := event.Client().Rest().GetMessage(event.ChannelID, event.MessageID)
 		if err != nil {
 			log.Printf("Error fetching message: %v", err)
@@ -40,9 +40,9 @@ func OnReactionAdd(event *events.GuildMessageReactionAdd) {
 		}
 
 		// Insert or update the star count in the database
-		err  = InsertStaredMessage(event.MessageID.String(), event.ChannelID.String(), message.Author.ID.String(), message.Content)
+		err = InsertStarredMessage(event.MessageID.String(), event.ChannelID.String(), message.Author.ID.String(), message.Content)
 		if err != nil {
-			log.Printf("Error inserting stared message: %v", err)
+			log.Printf("Error inserting Starred message: %v", err)
 			return
 		}
 
@@ -52,7 +52,7 @@ func OnReactionAdd(event *events.GuildMessageReactionAdd) {
 			log.Printf("Error fetching star count: %v", err)
 			return
 		}
-		
+
 		if starCount >= config.AppConfig.StarThreshold {
 			// Call the PostToStarboard function here
 			PostToStarboard(event, message, starCount)
@@ -158,13 +158,13 @@ func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Mes
 
 	// Create the embed for the starred message
 	embedBuilder := discord.NewEmbedBuilder().
-		SetTitle(fmt.Sprintf("⭐ %d # %s", starCount, event.ChannelID.String())). // Add star count in title
-		SetDescription(message.Content).                                          // Add message content
+		SetTitle(fmt.Sprintf("⭐ %d # %s", starCount, event.ChannelID.String())).                                                                                              // Add star count in title
+		SetDescription(message.Content).                                                                                                                                      // Add message content
 		AddField("Source", fmt.Sprintf("[Jump!](https://discord.com/channels/%s/%s/%s)", event.GuildID.String(), event.ChannelID.String(), event.MessageID.String()), false). // Jump link to the message
-		SetAuthorName(message.Author.Username).                                   // Add the author's username
-		SetAuthorIcon(avatarURL).                                                 // Add the author's avatar URL
-		SetTimestamp(message.CreatedAt).                                          // Timestamp of the original message
-		SetFooterText("From #" + event.ChannelID.String())                        // Channel name in the footer
+		SetAuthorName(message.Author.Username).                                                                                                                               // Add the author's username
+		SetAuthorIcon(avatarURL).                                                                                                                                             // Add the author's avatar URL
+		SetTimestamp(message.CreatedAt).                                                                                                                                      // Timestamp of the original message
+		SetFooterText("From #" + event.ChannelID.String())                                                                                                                    // Channel name in the footer
 
 	if len(message.Attachments) > 0 {
 		embedBuilder.SetImage(message.Attachments[0].URL) // Add the first attachment as an image
@@ -188,4 +188,3 @@ func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Mes
 
 	return nil
 }
-
