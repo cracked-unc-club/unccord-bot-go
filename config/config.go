@@ -3,7 +3,6 @@ package config
 // Configuration handler for the bot
 
 import (
-	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
@@ -104,24 +103,17 @@ func loadStarboardConfig() struct {
 
 func loadDiscordToken() string {
 	token := getEnvOrFatal("DISCORD_TOKEN")
+
+	// Trim any whitespace
 	token = strings.TrimSpace(token)
 
-	log.Printf("Discord token length: %d", len(token))
-	log.Printf("Discord token first 10 characters: %s", token[:10])
-	log.Printf("Discord token last 10 characters: %s", token[len(token)-10:])
-
-	// Attempt to decode the base64 part of the token
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		log.Fatalf("Token does not have the expected number of parts (expected 3, got %d)", len(parts))
+	// Basic validation
+	if len(token) < 50 || len(token) > 100 {
+		log.Fatalf("DISCORD_TOKEN seems invalid (length: %d). Please check your .env file or environment variables.", len(token))
 	}
 
-	_, err := base64.RawStdEncoding.DecodeString(parts[0])
-	if err != nil {
-		log.Fatalf("Failed to decode base64 part of token: %v", err)
-	}
-
-	log.Println("Token passed basic validation checks")
+	// Log the first few characters of the token for debugging
+	log.Printf("Discord token starts with: %s...", token[:10])
 
 	return token
 }
@@ -140,5 +132,12 @@ func ValidateConfig() error {
 		AppConfig.DBPassword == "" || AppConfig.DBName == "" || AppConfig.DiscordToken == "" || AppConfig.StarboardChannelID == 0 {
 		return fmt.Errorf("one or more required environment variables are missing")
 	}
+
+	// Additional Discord token validation
+	if !strings.HasPrefix(AppConfig.DiscordToken, "Bot ") {
+		log.Println("Warning: Discord token doesn't start with 'Bot '. Adding prefix...")
+		AppConfig.DiscordToken = "Bot " + AppConfig.DiscordToken
+	}
+
 	return nil
 }

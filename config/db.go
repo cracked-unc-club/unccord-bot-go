@@ -27,7 +27,7 @@ func ConnectDB() {
 	var err error
 	DB, err = sql.Open("postgres", connStr)
 	if err != nil {
-		log.Fatalf("Cannot open the database: %v",err)
+		log.Fatalf("Cannot open the database: %v", err)
 	}
 
 	err = DB.Ping()
@@ -35,4 +35,28 @@ func ConnectDB() {
 		log.Fatalf("Cannot ping the database: %v", err)
 	}
 	log.Println("Connected to the database")
+
+	// Initialize the database schema
+	err = initDBSchema()
+	if err != nil {
+		log.Fatalf("Failed to initialize database schema: %v", err)
+	}
+	log.Println("Database schema initialized")
+}
+
+// Initialize the database schema
+func initDBSchema() error {
+	// Read the SQL script
+	script, err := os.ReadFile("SQL/starboard-ddl.sql")
+	if err != nil {
+		return fmt.Errorf("failed to read starboard-ddl.sql: %v", err)
+	}
+
+	// Execute the SQL script
+	_, err = DB.Exec(string(script))
+	if err != nil {
+		return fmt.Errorf("failed to execute starboard-ddl.sql: %v", err)
+	}
+
+	return nil
 }
