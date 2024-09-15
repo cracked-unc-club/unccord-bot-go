@@ -27,7 +27,7 @@ func ConnectDB() {
 	var err error
 	DB, err = sql.Open("postgres", connStr)
 	if err != nil {
-		log.Fatalf("Cannot ping the database: %v",err)
+		log.Fatalf("Cannot open the database: %v",err)
 	}
 
 	err = DB.Ping()
