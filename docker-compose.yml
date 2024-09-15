@@ -9,10 +9,13 @@ services:
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - db_data:/var/lib/postgresql/data
-      #    ports:
-      #      - "5432:5432"
     env_file:
       - .env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   bot:
     build:
@@ -21,9 +24,11 @@ services:
     working_dir: /app
     command: ./main
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     env_file:
       - .env
+
 volumes:
   db_data:
     driver: local
