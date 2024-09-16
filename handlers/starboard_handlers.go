@@ -222,15 +222,21 @@ func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Mes
 		avatarURL = *message.Author.AvatarURL()
 	}
 
+	// Fetch the channel information
+	channel, err := event.Client().Rest().GetChannel(event.ChannelID)
+	if err != nil {
+		return fmt.Errorf("error fetching channel information: %w", err)
+	}
+
 	// Create the embed for the starred message
 	embedBuilder := discord.NewEmbedBuilder().
-		SetTitle(fmt.Sprintf("⭐ %d # %s", starCount, event.ChannelID.String())).                                                                                              // Add star count in title
-		SetDescription(message.Content).                                                                                                                                      // Add message content
-		AddField("Source", fmt.Sprintf("[Jump!](https://discord.com/channels/%s/%s/%s)", event.GuildID.String(), event.ChannelID.String(), event.MessageID.String()), false). // Jump link to the message
-		SetAuthorName(message.Author.Username).                                                                                                                               // Add the author's username
-		SetAuthorIcon(avatarURL).                                                                                                                                             // Add the author's avatar URL
-		SetTimestamp(message.CreatedAt).                                                                                                                                      // Timestamp of the original message
-		SetFooterText("From #" + event.ChannelID.String())                                                                                                                    // Channel name in the footer
+		SetTitle(fmt.Sprintf("⭐ %d | #%s", starCount, channel.Name())). // Use channel.Name instead of channel ID
+		SetDescription(message.Content).
+		AddField("Source", fmt.Sprintf("[Jump!](https://discord.com/channels/%s/%s/%s)", event.GuildID.String(), event.ChannelID.String(), event.MessageID.String()), false).
+		SetAuthorName(message.Author.Username).
+		SetAuthorIcon(avatarURL).
+		SetTimestamp(message.CreatedAt).
+		SetFooterText("From #" + channel.Name()) // Call the Name() method
 
 	if len(message.Attachments) > 0 {
 		embedBuilder.SetImage(message.Attachments[0].URL) // Add the first attachment as an image
