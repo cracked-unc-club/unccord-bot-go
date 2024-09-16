@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"unccord-bot-go/config"
@@ -30,84 +31,149 @@ func GetStarredMessage(messageID string) (int, error) {
 
 // OnReactionAdd handles star reactions and posts the message to the starboard if it reaches the threshold.
 func OnReactionAdd(event *events.GuildMessageReactionAdd) {
-	// Check if the reaction is a star emoji
-	if *event.Emoji.Name == "⭐" {
-		//Fetch the message that was reacted to
-		message, err := event.Client().Rest().GetMessage(event.ChannelID, event.MessageID)
-		if err != nil {
-			log.Printf("Error fetching message: %v", err)
-			return
-		}
+	if !isStarEmoji(event.Emoji) {
+		return
+	}
 
-		// Insert or update the star count in the database
-		err = InsertStarredMessage(event.MessageID.String(), event.ChannelID.String(), message.Author.ID.String(), message.Content)
-		if err != nil {
-			log.Printf("Error inserting Starred message: %v", err)
-			return
-		}
+	message, err := fetchMessage(event.Client(), event.ChannelID, event.MessageID)
+	if err != nil {
+		log.Printf("Error fetching message: %v", err)
+		return
+	}
 
-		// check if the message has reached the star threshold
-		starCount, err := GetStarredMessage(event.MessageID.String())
-		if err != nil {
-			log.Printf("Error fetching star count: %v", err)
-			return
-		}
+	if err := updateStarCount(event.MessageID.String(), event.ChannelID.String(), message.Author.ID.String(), message.Content, true); err != nil {
+		log.Printf("Error updating star count: %v", err)
+		return
+	}
 
-		if starCount >= config.AppConfig.StarThreshold {
-			// Call the PostToStarboard function here
-			PostToStarboard(event, message, starCount)
-		}
+	starCount, err := GetStarredMessage(event.MessageID.String())
+	if err != nil {
+		handleStarCountError(err, event.MessageID.String())
+		return
+	}
+
+	if err := handleStarboardPost(event, message, starCount); err != nil {
+		log.Printf("Error handling starboard post: %v", err)
 	}
 }
 
 // OnReactionRemove handles the removal of reactions and updates the starboard accordingly.
 func OnReactionRemove(event *events.GuildMessageReactionRemove) {
-	// Check if the removed reaction is a star emoji
-	if event.Emoji.Name != nil && *event.Emoji.Name == "⭐" {
-		// Decrement the star count in the database
-		err := RemoveStarFromMessage(event.MessageID.String())
-		if err != nil {
-			log.Printf("Error removing star from message: %v", err)
-			return
-		}
-
-		// Fetch the updated star count
-		starCount, err := GetStarredMessage(event.MessageID.String())
-		if err != nil {
-			log.Printf("Error fetching star count: %v", err)
-			return
-		}
-
-		// If the star count is 0, remove the message from the starboard
-		if starCount <= 0 {
-			// Fetch the starboard message ID from the database
-			starboardMessageID, err := GetStarboardMessageID(event.MessageID.String())
-			if err != nil {
-				log.Printf("Error fetching starboard message ID: %v", err)
-				return
-			}
-
-			// Delete the message from the starboard channel
-			err = DeleteStarboardMessage(event.Client(), starboardMessageID)
-			if err != nil {
-				log.Printf("Error deleting message from starboard: %v", err)
-			}
-
-			// Optionally, you could delete the row from the database
-			// err = RemoveFromStarboard(event.MessageID.String())
-			// if err != nil {
-			//     log.Printf("Error removing message from starboard: %v", err)
-			// }
-		}
+	if !isStarEmoji(event.Emoji) {
+		return
 	}
+
+	if err := updateStarCount(event.MessageID.String(), event.ChannelID.String(), "", "", false); err != nil {
+		log.Printf("Error updating star count: %v", err)
+		return
+	}
+
+	starCount, err := GetStarredMessage(event.MessageID.String())
+	if err != nil {
+		handleStarCountError(err, event.MessageID.String())
+		return
+	}
+
+	if err := updateStarboardMessage(event.Client(), event.MessageID.String(), starCount); err != nil {
+		log.Printf("Error updating starboard message: %v", err)
+	}
+}
+
+// Helper functions
+
+func isStarEmoji(emoji discord.PartialEmoji) bool {
+	return emoji.Name != nil && *emoji.Name == "⭐"
+}
+
+func fetchMessage(client bot.Client, channelID, messageID snowflake.ID) (*discord.Message, error) {
+	message, err := client.Rest().GetMessage(channelID, messageID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching message: %w", err)
+	}
+	return message, nil
+}
+
+func updateStarCount(messageID, channelID, authorID, content string, increment bool) error {
+	var err error
+	if increment {
+		err = InsertStarredMessage(messageID, channelID, authorID, content)
+	} else {
+		err = RemoveStarFromMessage(messageID)
+	}
+	return err
+}
+
+func handleStarCountError(err error, messageID string) {
+	if err == sql.ErrNoRows {
+		log.Printf("No stars found for message %s, skipping starboard update", messageID)
+	} else {
+		log.Printf("Error fetching star count: %v", err)
+	}
+}
+
+func handleStarboardPost(event *events.GuildMessageReactionAdd, message *discord.Message, starCount int) error {
+	existingStarboardMessageID, err := GetStarboardMessageID(event.MessageID.String())
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("error checking existing starboard message: %w", err)
+	}
+
+	if existingStarboardMessageID != "" {
+		return updateStarboardMessage(event.Client(), event.MessageID.String(), starCount)
+	}
+
+	if starCount >= config.AppConfig.StarThreshold {
+		return PostToStarboard(event, message, starCount)
+	}
+
+	return nil
+}
+
+func updateStarboardMessage(client bot.Client, messageID string, starCount int) error {
+	starboardMessageID, err := GetStarboardMessageID(messageID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil // Message not in starboard yet, nothing to update
+		}
+		return fmt.Errorf("error fetching starboard message ID: %w", err)
+	}
+
+	starboardMessageIDSnowflake, err := snowflake.Parse(starboardMessageID)
+	if err != nil {
+		return fmt.Errorf("error parsing starboard message ID: %w", err)
+	}
+
+	message, err := client.Rest().GetMessage(config.AppConfig.StarboardChannelID, starboardMessageIDSnowflake)
+	if err != nil {
+		return fmt.Errorf("error fetching starboard message: %w", err)
+	}
+
+	if len(message.Embeds) == 0 {
+		return fmt.Errorf("starboard message has no embeds")
+	}
+
+	updatedEmbed := message.Embeds[0]
+	updatedEmbed.Title = fmt.Sprintf("⭐ %d # %s", starCount, message.ChannelID)
+
+	_, err = client.Rest().UpdateMessage(config.AppConfig.StarboardChannelID, starboardMessageIDSnowflake, discord.NewMessageUpdateBuilder().SetEmbeds(updatedEmbed).Build())
+	if err != nil {
+		return fmt.Errorf("error updating starboard message: %w", err)
+	}
+
+	return nil
 }
 
 // GetStarboardMessageID retrieves the starboard message ID from the database based on the original message ID.
 func GetStarboardMessageID(messageID string) (string, error) {
-	var starboardMessageID string
+	var starboardMessageID sql.NullString
 	query := `SELECT starboard_message_id FROM starboard WHERE message_id = $1`
 	err := config.DB.QueryRow(query, messageID).Scan(&starboardMessageID)
-	return starboardMessageID, err
+	if err != nil {
+		return "", err
+	}
+	if !starboardMessageID.Valid {
+		return "", sql.ErrNoRows
+	}
+	return starboardMessageID.String, nil
 }
 
 // DeleteStarboardMessage deletes a message from the starboard channel.
@@ -175,15 +241,13 @@ func PostToStarboard(event *events.GuildMessageReactionAdd, message *discord.Mes
 	// Send the embed to the starboard channel and capture the message ID
 	starboardMessage, err := event.Client().Rest().CreateMessage(config.AppConfig.StarboardChannelID, discord.NewMessageCreateBuilder().AddEmbeds(embed).Build())
 	if err != nil {
-		log.Printf("Error sending message to starboard: %v", err)
-		return err
+		return fmt.Errorf("error sending message to starboard: %w", err)
 	}
 
 	// Update the database with the starboard message ID
 	err = UpdateStarboardMessageID(event.MessageID.String(), starboardMessage.ID.String())
 	if err != nil {
-		log.Printf("Error updating starboard message ID in database: %v", err)
-		return err
+		return fmt.Errorf("error updating starboard message ID in database: %w", err)
 	}
 
 	return nil
