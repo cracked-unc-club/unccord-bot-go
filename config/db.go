@@ -46,17 +46,29 @@ func ConnectDB() {
 
 // Initialize the database schema
 func initDBSchema() error {
-	// Read the SQL script
+	// Check if the starboard table already exists
+	var exists bool
+	err := DB.QueryRow("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'starboard')").Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check if starboard table exists: %v", err)
+	}
+
+	if exists {
+		log.Println("Starboard table already exists, skipping initialization")
+		return nil
+	}
+
+	// Read and execute the SQL script only if the table doesn't exist
 	script, err := os.ReadFile("SQL/starboard-ddl.sql")
 	if err != nil {
 		return fmt.Errorf("failed to read starboard-ddl.sql: %v", err)
 	}
 
-	// Execute the SQL script
 	_, err = DB.Exec(string(script))
 	if err != nil {
 		return fmt.Errorf("failed to execute starboard-ddl.sql: %v", err)
 	}
 
+	log.Println("Starboard table created successfully")
 	return nil
 }
