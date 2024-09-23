@@ -17,7 +17,7 @@ plugins:
       # skipInitialization: true
 lavalink:
   plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.8.1"
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.8.2"
       snapshot: false
   server:
     password: "youshallnotpass"
