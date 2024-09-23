@@ -2,67 +2,103 @@ package main
 
 import (
 	"context"
-	"log"
-	"log/slog"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
+	"time"
+
 	"unccord-bot-go/config"
 	"unccord-bot-go/handlers"
 
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
+	"github.com/disgoorg/disgo/cache"
 	"github.com/disgoorg/disgo/gateway"
-	"github.com/joho/godotenv"
+	"github.com/disgoorg/disgolink/v3/disgolink"
+	"log/slog"
 )
 
 func main() {
 	slog.Info("Starting unccord-bot-go...")
 
-	err := godotenv.Load()
-	if err != nil {
-		slog.Error("Error loading .env file", "err", err)
+	// Load configuration
+	config.LoadConfig()
+	if config.AppConfig.DiscordToken == "" {
+		slog.Error("No Discord token provided. Check your configuration.")
+		return
 	}
 
-	config.LoadConfig()
-	config.ConnectDB()
+	// Setup graceful shutdown signal handling
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	setupSignalHandler()
 
-	// Debug log for Discord token (only show the first few characters)
-	slog.Debug("Discord token", "token_prefix", config.AppConfig.DiscordToken[:10]+"...")
+	// Initialize bot handlers
+	b := handlers.NewHandler()
 
-	log.Printf("Using Discord token: %s...%s", config.AppConfig.DiscordToken[:10], config.AppConfig.DiscordToken[len(config.AppConfig.DiscordToken)-10:])
-
+	// Create the bot client
 	client, err := disgo.New(config.AppConfig.DiscordToken,
 		bot.WithGatewayConfigOpts(
-			gateway.WithIntents(
-				gateway.IntentGuildMessages,
-				gateway.IntentMessageContent,
-				gateway.IntentGuildMessageReactions,
-			),
+			gateway.WithIntents(gateway.IntentGuilds, gateway.IntentGuildVoiceStates, gateway.IntentGuildMessages, gateway.IntentMessageContent),
 		),
-		bot.WithEventListenerFunc(handlers.OnReactionAdd),
-		bot.WithEventListenerFunc(handlers.OnMessageCreate),
-		bot.WithEventListenerFunc(handlers.OnReactionRemove),
+		bot.WithCacheConfigOpts(
+			cache.WithCaches(cache.FlagVoiceStates),
+		),
+		bot.WithEventListeners(b),
 	)
 	if err != nil {
-		log.Printf("Error creating Discord client: %v", err)
-		if strings.Contains(err.Error(), "illegal base64") {
-			log.Printf("Token might be malformed. Please check for any extra characters or spaces.")
-		}
-		os.Exit(1)
+		slog.Error("Error while building client", slog.Any("err", err))
+		return
+	}
+	b.Client = client
+
+	// Initialize Lavalink with the loaded config
+	b.Lavalink = disgolink.New(client.ApplicationID())
+	if err = setupLavalink(ctx, b); err != nil {
+		slog.Error("Failed to setup Lavalink", slog.Any("err", err))
+		return
 	}
 
+	// Connect to Discord Gateway
+	if err = client.OpenGateway(ctx); err != nil {
+		slog.Error("Error connecting to Discord gateway", slog.Any("err", err))
+		return
+	}
 	defer client.Close(context.TODO())
 
-	if err = client.OpenGateway(context.TODO()); err != nil {
-		slog.Error("Error connecting to Discord gateway", slog.Any("err", err))
-		os.Exit(1)
+	// Register commands after connecting to the gateway
+	if err = b.RegisterCommands(client); err != nil {
+		slog.Error("Failed to register commands", slog.Any("err", err))
+		return
 	}
 
 	slog.Info("unccord-bot-go is now running. Press CTRL-C to exit.")
+	<-setupSignalHandler()
+}
 
+// setupLavalink initializes Lavalink nodes based on the configuration.
+func setupLavalink(ctx context.Context, b *handlers.Handler) error {
+	node, err := b.Lavalink.AddNode(ctx, disgolink.NodeConfig{
+		Name:     "default",
+		Address:  config.AppConfig.LavalinkHost + ":" + config.AppConfig.LavalinkPort,
+		Password: config.AppConfig.LavalinkPassword,
+	})
+	if err != nil {
+		return err
+	}
+
+	version, err := node.Version(ctx)
+	if err != nil {
+		return err
+	}
+
+	slog.Info("Lavalink node connected", slog.String("version", version), slog.String("session_id", node.SessionID()))
+	return nil
+}
+
+// setupSignalHandler handles graceful shutdown signals.
+func setupSignalHandler() chan os.Signal {
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	<-s
+	return s
 }

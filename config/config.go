@@ -13,47 +13,40 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 )
 
-// Config holds the configuration details for the bot, including database credentials, starboard settings, and Discord token.
+// Config holds the configuration details for the bot, including database credentials, starboard settings, Discord token, and Lavalink configuration.
 type Config struct {
-	// Database configuration
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
-
-	// Starboard configuration
+	DBHost            string
+	DBPort            string
+	DBUser            string
+	DBPassword        string
+	DBName            string
 	StarboardChannelID snowflake.ID
-	StarThreshold      int
-
-	// Other Settings (e.g., Discord Token)
-	DiscordToken string
+	StarThreshold     int
+	LavalinkHost      string
+	LavalinkPort      string
+	LavalinkPassword  string
+	DiscordToken      string
 }
 
 // AppConfig holds the global configuration for the bot.
 var AppConfig Config
 
+// LoadConfig initializes and validates the bot's configuration.
 func LoadConfig() {
 	log.Println("Starting to load configuration...")
 
-	// Load and validate database configuration
-	dbConfig := loadDBConfig()
-
-	// Load and validate Starboard configuration
-	starboardConfig := loadStarboardConfig()
-
-	// Load and validate Discord token
-	discordToken := loadDiscordToken()
-
 	AppConfig = Config{
-		DBHost:             dbConfig.Host,
-		DBPort:             dbConfig.Port,
-		DBUser:             dbConfig.User,
-		DBPassword:         dbConfig.Password,
-		DBName:             dbConfig.Name,
-		StarboardChannelID: starboardConfig.ChannelID,
-		StarThreshold:      starboardConfig.Threshold,
-		DiscordToken:       discordToken,
+		DBHost:             mustGetEnv("DB_HOST"),
+		DBPort:             mustGetEnv("DB_PORT"),
+		DBUser:             mustGetEnv("DB_USER"),
+		DBPassword:         mustGetEnv("DB_PASSWORD"),
+		DBName:             mustGetEnv("DB_NAME"),
+		StarboardChannelID: mustParseSnowflake("STARBOARD_CHANNEL_ID"),
+		StarThreshold:      mustParseInt("STAR_THRESHOLD"),
+		DiscordToken:       loadAndValidateDiscordToken(),
+		LavalinkHost:       mustGetEnv("SERVER_ADDRESS"),
+		LavalinkPort:       mustGetEnv("SERVER_PORT"),
+		LavalinkPassword:   mustGetEnv("LAVALINK_SERVER_PASSWORD"),
 	}
 
 	if err := ValidateConfig(); err != nil {
@@ -63,70 +56,8 @@ func LoadConfig() {
 	log.Println("Configuration loaded successfully")
 }
 
-func loadDBConfig() struct {
-	Host, Port, User, Password, Name string
-} {
-	return struct {
-		Host, Port, User, Password, Name string
-	}{
-		Host:     getEnvOrFatal("DB_HOST"),
-		Port:     getEnvOrFatal("DB_PORT"),
-		User:     getEnvOrFatal("DB_USER"),
-		Password: getEnvOrFatal("DB_PASSWORD"),
-		Name:     getEnvOrFatal("DB_NAME"),
-	}
-}
-
-func loadStarboardConfig() struct {
-	ChannelID snowflake.ID
-	Threshold int
-} {
-	channelIDStr := getEnvOrFatal("STARBOARD_CHANNEL_ID")
-	channelID, err := snowflake.Parse(channelIDStr)
-	if err != nil {
-		log.Fatalf("Invalid STARBOARD_CHANNEL_ID '%s': %v", channelIDStr, err)
-	}
-
-	thresholdStr := getEnvOrFatal("STAR_THRESHOLD")
-	threshold, err := strconv.Atoi(thresholdStr)
-	if err != nil {
-		log.Fatalf("Invalid STAR_THRESHOLD '%s': %v", thresholdStr, err)
-	}
-
-	return struct {
-		ChannelID snowflake.ID
-		Threshold int
-	}{
-		ChannelID: channelID,
-		Threshold: threshold,
-	}
-}
-
-func loadDiscordToken() string {
-	token := getEnvOrFatal("DISCORD_TOKEN")
-	token = strings.TrimSpace(token)
-
-	log.Printf("Discord token length: %d", len(token))
-	log.Printf("Discord token first 10 characters: %s", token[:10])
-	log.Printf("Discord token last 10 characters: %s", token[len(token)-10:])
-
-	// Attempt to decode the base64 part of the token
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		log.Fatalf("Token does not have the expected number of parts (expected 3, got %d)", len(parts))
-	}
-
-	_, err := base64.RawStdEncoding.DecodeString(parts[0])
-	if err != nil {
-		log.Fatalf("Failed to decode base64 part of token: %v", err)
-	}
-
-	log.Println("Token passed basic validation checks")
-
-	return token
-}
-
-func getEnvOrFatal(key string) string {
+// mustGetEnv retrieves environment variables or logs a fatal error if not set.
+func mustGetEnv(key string) string {
 	value := os.Getenv(key)
 	if value == "" {
 		log.Fatalf("Environment variable %s is missing or empty", key)
@@ -134,10 +65,52 @@ func getEnvOrFatal(key string) string {
 	return value
 }
 
-// ValidateConfig checks if the required environment variables are set.
+// mustParseSnowflake parses a snowflake ID from an environment variable.
+func mustParseSnowflake(key string) snowflake.ID {
+	idStr := mustGetEnv(key)
+	id, err := snowflake.Parse(idStr)
+	if err != nil {
+		log.Fatalf("Invalid %s: %v", key, err)
+	}
+	return id
+}
+
+// mustParseInt parses an integer from an environment variable.
+func mustParseInt(key string) int {
+	valueStr := mustGetEnv(key)
+	value, err := strconv.Atoi(valueStr)
+	if err != nil {
+		log.Fatalf("Invalid %s: %v", key, err)
+	}
+	return value
+}
+
+// loadAndValidateDiscordToken handles Discord token retrieval and basic validation.
+func loadAndValidateDiscordToken() string {
+	token := strings.TrimSpace(mustGetEnv("DISCORD_TOKEN"))
+
+	log.Printf("Discord token length: %d", len(token))
+	log.Printf("Discord token first 10 characters: %s", token[:10])
+	log.Printf("Discord token last 10 characters: %s", token[len(token)-10:])
+
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		log.Fatalf("Token does not have the expected number of parts (expected 3, got %d)", len(parts))
+	}
+
+	if _, err := base64.RawStdEncoding.DecodeString(parts[0]); err != nil {
+		log.Fatalf("Failed to decode base64 part of token: %v", err)
+	}
+
+	log.Println("Token passed basic validation checks")
+	return token
+}
+
+// ValidateConfig checks if all critical configuration fields are set.
 func ValidateConfig() error {
 	if AppConfig.DBHost == "" || AppConfig.DBPort == "" || AppConfig.DBUser == "" ||
-		AppConfig.DBPassword == "" || AppConfig.DBName == "" || AppConfig.DiscordToken == "" || AppConfig.StarboardChannelID == 0 {
+		AppConfig.DBPassword == "" || AppConfig.DBName == "" || AppConfig.DiscordToken == "" ||
+		AppConfig.LavalinkHost == "" || AppConfig.LavalinkPort == "" || AppConfig.LavalinkPassword == "" {
 		return fmt.Errorf("one or more required environment variables are missing")
 	}
 	return nil

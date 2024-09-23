@@ -13,6 +13,8 @@ RUN go mod download
 
 # Build the Go app
 RUN go build -o main ./cmd/main.go
+RUN chmod +x ./main
+
 
 # Command to run the executable
 CMD ["./main"]

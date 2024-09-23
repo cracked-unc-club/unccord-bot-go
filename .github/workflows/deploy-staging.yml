@@ -1,9 +1,9 @@
-name: Build and Deploy Discord Bot
+name: Staging Deploy
 
 on:
   push:
     branches:
-      - main  # Change if you're using a different branch
+      - main 
 
 jobs:
   build-deploy:

@@ -11,15 +11,14 @@ services:
       - .env
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
-      interval: 30s
-      timeout: 10s
+      interval: 3s
+      timeout: 1s
       retries: 5
   bot:
     build:
       context: .
       dockerfile: Dockerfile
     working_dir: /app
-    command: ./main
     depends_on:
       db:
         condition: service_healthy
@@ -29,6 +28,9 @@ services:
       image: ghcr.io/lavalink-devs/lavalink:4
       container_name: lavalink
       restart: unless-stopped
+      volumes:
+      # mount application.yml from the same directory or use environment variables
+      - ./application.yml:/opt/Lavalink/application.yml
       env_file:
         - .env
 volumes:

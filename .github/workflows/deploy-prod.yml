@@ -1,4 +1,4 @@
-name: Build and Deploy Discord Bot
+name: Prod Deploy
 
 on:
   workflow_dispatch:
