@@ -14,7 +14,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-
   bot:
     build:
       context: .
@@ -26,7 +25,12 @@ services:
         condition: service_healthy
     env_file:
       - .env
-
+  lavalink:
+      image: ghcr.io/lavalink-devs/lavalink:4
+      container_name: lavalink
+      restart: unless-stopped
+      env_file:
+        - .env
 volumes:
   db_data:
     driver: local

@@ -13,8 +13,8 @@ jobs:
       continue-on-error: true
       uses: appleboy/ssh-action@v0.1.3
       with:
-        host: ${{ secrets.PROD_SERVER_HOST }}
-        username: ${{ secrets.PROD_SERVER_USER }}
-        key: ${{ secrets.PROD_SERVER_SSH_KEY }}
+        host: ${{ secrets.STAGING_SERVER_HOST }}
+        username: ${{ secrets.STAGING_SERVER_USER }}
+        key: ${{ secrets.STAGING_SERVER_SSH_KEY }}
         script: |
           ~/deploy_app.sh
