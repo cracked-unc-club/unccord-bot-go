@@ -17,7 +17,6 @@ services:
 
   lavalink:
     image: ghcr.io/lavalink-devs/lavalink:4
-    container_name: lavalink
     restart: unless-stopped
     volumes:
       - ./application.yml:/opt/Lavalink/application.yml
