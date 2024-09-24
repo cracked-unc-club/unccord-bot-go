@@ -46,3 +46,4 @@ services:
 volumes:
   db_data:
     driver: local
+
