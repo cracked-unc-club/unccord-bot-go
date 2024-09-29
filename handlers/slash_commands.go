@@ -91,21 +91,33 @@ func (h *Handler) RegisterGuildCommands(client bot.Client, guildID snowflake.ID)
 }
 
 func (h *Handler) handleNowPlaying(event *events.ApplicationCommandInteractionCreate) {
-	player := h.Lavalink.Player(*event.GuildID())
-	queue := h.Queues.Get(*event.GuildID())
-	if player == nil || len(queue.Tracks) == 0 {
-		event.CreateMessage(discord.NewMessageCreateBuilder().
-			SetContent("No song is currently playing.").
-			SetEphemeral(true).
-			Build())
-		return
-	}
+    player := h.Lavalink.ExistingPlayer(*event.GuildID())
+    if player == nil {
+        event.CreateMessage(discord.NewMessageCreateBuilder().
+            SetContent("No active player found.").
+            SetEphemeral(true).
+            Build())
+        return
+    }
 
-	currentTrack := queue.Tracks[0]
-	event.CreateMessage(discord.NewMessageCreateBuilder().
-		SetContent(fmt.Sprintf("Now playing: **%s**", currentTrack.Info.Title)).
-		SetEphemeral(true).
-		Build())
+    currentTrack := player.Track()
+    if currentTrack == nil {
+        event.CreateMessage(discord.NewMessageCreateBuilder().
+            SetContent("No song is currently playing.").
+            SetEphemeral(true).
+            Build())
+        return
+    }
+
+    event.CreateMessage(discord.NewMessageCreateBuilder().
+        SetEmbeds(discord.NewEmbedBuilder().
+            SetTitle("Now Playing").
+            SetDescription(fmt.Sprintf("**%s** by **%s**", currentTrack.Info.Title, currentTrack.Info.Author)).
+            SetColor(ColorSuccess).
+            SetThumbnail(*currentTrack.Info.ArtworkURL).
+            Build()).
+        SetEphemeral(true).
+        Build())
 }
 
 func (h *Handler) handleQueue(event *events.ApplicationCommandInteractionCreate) {
@@ -134,7 +146,21 @@ func (h *Handler) handleQueue(event *events.ApplicationCommandInteractionCreate)
 }
 
 func (h *Handler) handlePlayer(event *events.ApplicationCommandInteractionCreate) {
-	h.createControlPanel(event.Channel().ID(), *event.GuildID())
+    player := h.Lavalink.ExistingPlayer(*event.GuildID())
+    if player == nil {
+        event.CreateMessage(discord.NewMessageCreateBuilder().
+            SetContent("No active player found.").
+            SetEphemeral(true).
+            Build())
+        return
+    }
+
+    h.createControlPanel(event.ChannelID(), *event.GuildID())
+    
+    event.CreateMessage(discord.NewMessageCreateBuilder().
+        SetContent("Player controls have been created.").
+        SetEphemeral(true).
+        Build())
 }
 
 func (h *Handler) handleSkip(event *events.ApplicationCommandInteractionCreate) {
