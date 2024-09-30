@@ -30,7 +30,6 @@ Automatic cracked unc event organization in your local metropolitian area?
 ### Features
 
 
-
 ## Project Structure
 
 ```
@@ -62,39 +61,118 @@ unccord-bot-go/
 
 ## Getting Started
 
+### Setting Up Your Discord Bot
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Click "New Application" and name your bot.
+3. Navigate to the "Bot" tab and click "Add Bot".
+4. Under "Token", click "Copy" to copy your bot token. Keep this secure!
+5. Enable these "Privileged Gateway Intents":
+   - Presence Intent
+   - Server Members Intent
+   - Message Content Intent
+6. Save your changes.
+
+### Bot Permissions
+
+Ensure your bot has these permissions:
+- Read Messages/View Channels
+- Send Messages
+- Embed Links
+- Attach Files
+- Read Message History
+- Add Reactions
+- Connect (to voice channels)
+- Speak (in voice channels)
+
+### Inviting the Bot to Your Server
+
+1. In the Developer Portal, go to "OAuth2" > "URL Generator".
+2. Select scopes: "bot" and "applications.commands".
+3. Choose the permissions listed above.
+4. Copy the generated URL and open it to invite the bot to your server.
+
+## Project Setup
+
 ### Prerequisites
 
 - [Go 1.20+](https://golang.org/dl/)
-- TODO: Describe the process for obtaining and setting bot token locally
+- Docker and Docker Compose
+- Your Discord bot token
 
-### Environment Variables
-
-Set the required environment variables:
-
-```bash
-export DISCORD_BOT_TOKEN="your_discord_bot_token"
-```
-
-### Installation
+### Configuration
 
 1. Clone the repository:
-
    ```bash
-   git clone https://github.com/yourusername/unccord-bot-go.git
+   https://github.com/cracked-unc-club/unccord-bot-go.git
    cd unccord-bot-go
    ```
 
-2. Install dependencies:
+2. Update the `.env` file in the project root:
+   ```
+   #DB config
+   DB_HOST=db
+   DB_PORT=5432
+   DB_USER=potclean
+   DB_PASSWORD=yourpass  # Change this to a secure password
+   DB_NAME=potclean
 
+   #Starboard config
+   STARBOARD_CHANNEL_ID=1282793245289484420  # Update with your channel ID
+   STAR_THRESHOLD=1
+
+   #JoinToCreate config
+   JOIN_TO_CREATE_CHANNEL_ID=1286835730705813574  # Update with your channel ID
+
+   #Discord config
+   DISCORD_TOKEN=yourtoken  # Replace with your actual bot token
+
+   # Lavalink Configuration
+   *JAVA*OPTIONS=-Xmx6G                                 
+   SERVER_PORT=2333
+   SERVER_ADDRESS=lavalink
+   LAVALINK_SERVER_PASSWORD=yourpass  # Change this to a secure password
+   ```
+   Replace `yourpass`, `yourtoken`, and the channel IDs with your actual values.
+
+### Building and Running with Docker
+
+1. Ensure Docker and Docker Compose are installed on your system.
+
+2. Build the Docker images:
    ```bash
-   go mod download
+   docker-compose build
    ```
 
-3. Run the bot:
-
+3. Start the services:
    ```bash
-   go run cmd/main.go
+   docker-compose up -d
    ```
+
+4. Check the logs to ensure everything is running correctly:
+   ```bash
+   docker-compose logs -f
+   ```
+
+5. The first time you run the bot, you'll need to authorize the YouTube integration:
+   - Look for a log message from the Lavalink container with a URL and code.
+   - Go to the provided URL (usually https://www.google.com/device) and enter the code.
+   - Use a burner Google account for this, not your main account.
+
+### Troubleshooting
+
+- If the bot doesn't connect, check your `DISCORD_TOKEN` in the `.env` file.
+- For database issues, ensure the `DB_PASSWORD` is correct and the PostgreSQL container is running.
+- If Lavalink fails to connect, verify the `LAVALINK_SERVER_PASSWORD` matches in both the bot and Lavalink configurations.
+
+### Maintenance
+
+- To stop the bot: `docker-compose down`
+- To update: Pull the latest changes, rebuild, and restart the containers.
+- Monitor logs regularly: `docker-compose logs -f`
+
+Remember to keep your `.env` file and bot token secure. Never commit them to public repositories.
+
 
 ## GitHub Actions CI Pipeline
 
