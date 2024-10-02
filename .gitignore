@@ -1,34 +1,26 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
+# Ignore everything by default
+*
 
-# Test binary, built with `go test -c`
-*.test
+# Allow version control files
+!.gitignore
+!.gitattributes
 
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
+# Allow Go-related files
+!**/*.go
+!go.mod
+!go.sum
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# Allow custom files
+!Dockerfile
+!docker-compose.yml
+!compose-dev.yaml
+!application.yml
+!setup-go.sh
+!token
 
-# Go workspace file
-go.work
-go.work.sum
-
-# env file
-.env
-
-compose-dev.yaml
-token
-setup-go.sh
-
-# Custom files
-customfile1.txt
-customfile2.json
-customfile3.yaml
+# Allow config and other directories
+!config/
+!cmd/
+!handlers/
+!queue/
+!SQL/
